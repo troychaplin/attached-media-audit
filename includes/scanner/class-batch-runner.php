@@ -53,10 +53,11 @@ class Batch_Runner {
 		$after_id = (int) get_transient( self::CURSOR_KEY );
 		$total    = self::get_total_post_count();
 
-		// Cache file sizes for all attachments on the first batch of a fresh scan.
-		if ( 0 === $after_id ) {
-			self::cache_attachment_file_sizes();
-		}
+		// Cache file sizes a bounded number at a time on every tick. Each call
+		// only touches attachments still missing the cached meta, so once the
+		// library is fully cached this is a cheap no-op. Doing the whole library
+		// on batch 0 risked exceeding max_execution_time on large sites.
+		self::cache_attachment_file_sizes( self::BATCH_SIZE );
 
 		$scanner = new Post_Scanner( self::get_all_attachment_ids() );
 		$ids     = self::get_batch( $after_id );
@@ -166,16 +167,23 @@ class Batch_Runner {
 		// phpcs:enable
 	}
 
-	private static function cache_attachment_file_sizes(): void {
+	/**
+	 * Cache file-size meta for attachments still missing it.
+	 *
+	 * @param int $limit Maximum attachments to process this call (0 = no limit).
+	 */
+	private static function cache_attachment_file_sizes( int $limit = 0 ): void {
 		global $wpdb;
+		$limit_sql = $limit > 0 ? $wpdb->prepare( ' LIMIT %d', $limit ) : '';
 		// Only process attachments that don't already have the cached meta.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$ids = $wpdb->get_col(
 			"SELECT p.ID FROM {$wpdb->posts} p
 			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_Attached_Media_Audit_filesize'
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
-			AND pm.meta_id IS NULL"
+			AND pm.meta_id IS NULL{$limit_sql}"
 		);
+		// phpcs:enable
 
 		foreach ( $ids as $id ) {
 			$id        = (int) $id;

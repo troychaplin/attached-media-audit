@@ -44,6 +44,17 @@ class Ajax_Handler {
 			wp_send_json_error( 'Missing attachment_id' );
 		}
 
+		$result   = Index_Table::get_locations( $attachment_id );
+		$rows     = $result['rows'];
+		$has_more = $result['has_more'];
+
+		// Prime the post cache for the whole set in one query so the per-row
+		// get_edit_post_link() calls below don't each trigger a cold lookup.
+		$ids = wp_list_pluck( $rows, 'ID' );
+		if ( $ids ) {
+			_prime_post_caches( array_map( 'intval', $ids ), false, false );
+		}
+
 		// Build a capability-aware edit URL server-side so the client doesn't
 		// assume a hardcoded /wp-admin path.
 		$locations = array_map(
@@ -56,10 +67,14 @@ class Ajax_Handler {
 					'edit_url'       => get_edit_post_link( (int) $loc->ID, 'raw' ) ?: '',
 				);
 			},
-			Index_Table::get_locations( $attachment_id )
+			$rows
 		);
 
-		wp_send_json_success( $locations );
+		wp_send_json_success( array(
+			'locations' => $locations,
+			'has_more'  => $has_more,
+			'limit'     => Index_Table::LOCATIONS_LIMIT,
+		) );
 	}
 
 	public static function handle_clear_index(): void {

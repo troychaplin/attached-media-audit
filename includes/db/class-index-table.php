@@ -218,10 +218,20 @@ class Index_Table {
 		return compact( 'total', 'used', 'unused' );
 	}
 
+	/** Maximum number of source posts returned for a single "Used In" popover. */
+	const LOCATIONS_LIMIT = 50;
+
 	/**
 	 * Return source posts for a given attachment ID.
 	 * Excludes trashed and auto-draft sources so the locations list reflects
 	 * live content only.
+	 *
+	 * Bounded to LOCATIONS_LIMIT rows so an attachment referenced by thousands
+	 * of posts cannot produce an unbounded query/payload. Fetches one extra row
+	 * to detect whether more exist without a second COUNT query.
+	 *
+	 * @param int $attachment_id
+	 * @return array{ rows: array, has_more: bool }
 	 */
 	public static function get_locations( int $attachment_id ): array {
 		global $wpdb;
@@ -229,16 +239,29 @@ class Index_Table {
 		$posts_table = $wpdb->posts;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		return $wpdb->get_results(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.ID, p.post_title, p.post_type, idx.reference_type
 				FROM {$table} idx
 				INNER JOIN {$posts_table} p ON p.ID = idx.source_post_id
 				WHERE idx.attachment_id = %d
 				AND p.post_status NOT IN ('trash', 'auto-draft')
-				ORDER BY p.post_title ASC",
-				$attachment_id
+				ORDER BY p.post_title ASC
+				LIMIT %d",
+				$attachment_id,
+				self::LOCATIONS_LIMIT + 1
 			)
+		);
+
+		$rows     = $rows ?: array();
+		$has_more = count( $rows ) > self::LOCATIONS_LIMIT;
+		if ( $has_more ) {
+			array_pop( $rows );
+		}
+
+		return array(
+			'rows'     => $rows,
+			'has_more' => $has_more,
 		);
 	}
 
@@ -379,10 +402,13 @@ class Index_Table {
 					p.post_mime_type,
 					p.post_date,
 					COUNT(idx.id) AS usage_count,
-					COALESCE(MAX(idx.missing_alt), 0) AS content_alt_missing
+					COALESCE(MAX(idx.missing_alt), 0) AS content_alt_missing,
+					pm_size.meta_value AS file_size,
+					pm_alt.meta_value AS alt_text
 				FROM {$posts_table} p
 				LEFT JOIN {$table} idx ON idx.attachment_id = p.ID
 				LEFT JOIN {$postmeta_table} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_Attached_Media_Audit_filesize'
+				LEFT JOIN {$postmeta_table} pm_alt ON pm_alt.post_id = p.ID AND pm_alt.meta_key = '_wp_attachment_image_alt'
 				WHERE {$full_where_sql}
 				GROUP BY p.ID
 				{$having_sql}
