@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       Attached: WP Media Audit
+ * Plugin Name:       Attached: Media Audit
  * Description:       Audit and manage WordPress media files from one dashboard.
  * Requires at least: 6.6
  * Requires PHP:      8.0

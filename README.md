@@ -1,204 +1,162 @@
-# Attached: WP Media Audit
+# Attached: Media Audit
 
-## A Claude Code vs GitHub Copilot Demo
-
-A comparison demo building a real WordPress plugin using two AI coding tools.
-The plugin extends the native Media Library to surface whether each media item
-is used anywhere on the site, and where.
+A WordPress plugin that audits your media library — showing which files are used, where they appear, and which are safe to clean up.
 
 ---
 
-## Overview
+## Features
 
-**Plugin name:** Attached: WP Media Audit
-**Goal:** Extend the existing WordPress Media Library screen with a usage filter — no new admin pages. Each media item should show whether it is used or unused, and where it appears.  
-**Demo format:** Same prompt, same environment, side-by-side comparison of Claude Code and GitHub Copilot.
-
----
-
-## Environment
-
-- **Local tool:** WordPress Studio  
-- **Sites:** Two identical sites — one per tool  
-- **Setup order:** Build and seed one site, duplicate it, then start the demo  
-- **Plugin folder:** Set a custom location in Studio and reference the same path in both tools  
-- **WP-CLI:** Available in Studio, prefixed with `studio` (e.g. `studio wp ...`)  
-- **Local URLs:** Each site gets its own `localhost` with a unique port
+- **Background scanner** indexes every post's media references via WP-Cron, with live progress feedback
+- **React admin UI** built with `@wordpress/dataviews` — sortable columns, filters, pagination, and bulk actions
+- Detects references in **Gutenberg blocks**, **classic editor** HTML, **featured images**, and **post meta**
+- Flags images with **missing alt text** in content (separate from the Media Library alt field)
+- **Used In** popover shows every post referencing an attachment with a direct edit link
+- Row actions: **Edit**, **View**, **Download**, **Delete Permanently**
+- **Clear Index** resets scan data; **Scan Now** triggers a fresh full scan
 
 ---
 
-## Test Site Setup
+## Requirements
 
-### 1. Install WordPress Studio
-Download from [developer.wordpress.com/studio](https://developer.wordpress.com/studio/) if not already installed.
+- WordPress 6.6+
+- PHP 8.0+
+- Node.js + pnpm (for development builds)
 
-### 2. Create the primary site
-Name it something neutral like `attached-demo`.
+---
 
-### 3. Set the plugin folder path
-In Studio settings, set a known folder location for the site. Note the full path — you will paste this into both tools at the start of the demo.
+## Installation
 
-### 4. Seed the media library
-Add content that covers the edge cases without over-explaining them in the prompt. Aim for 8–10 media items total so the table is readable on screen.
+1. Copy the `attached-media-audit` folder into `wp-content/plugins/`.
+2. Run `pnpm install && pnpm build` from the plugin root.
+3. Activate the plugin in **Plugins → Installed Plugins**.
+4. Navigate to **Media → Media Audit**.
+5. Click **Scan Now** to index your media library.
 
-- Embedded in a post body (classic editor block)
-- Set as featured image only — not in post content
-- Used in a Gutenberg Image block (stores attachment ID)
-- Part of a Gutenberg Gallery block
-- Part of the same Gallery block
-- Linked in post content by URL
-- Not used anywhere
-- Not used anywhere (non-image file)
+---
 
-This gives you **ground truth** before either tool writes a line of code. You know exactly what correct output looks like.
+## Admin UI
 
-### 5. Duplicate the site
-Once seeded, duplicate the site in Studio to create a second identical copy. Name it something like `attached-demo-copilot`. Do not touch either site's content again after this point.
+Found under **Media → Media Audit**. The table shows all attachments with the following columns:
 
-### 6. Set up the plugin scaffold
-In the plugin folder for each site, create the following structure before the demo begins:
+| Column | Notes |
+|---|---|
+| Preview | Thumbnail or file-type icon |
+| File Name | Links to edit; hover reveals row actions |
+| Type | Image / Video / Audio / Document — filterable |
+| Location | Block / Classic Editor / Featured Image / Post Meta — filterable |
+| Usage | Used / Unused — filterable |
+| Used In | Count of referencing posts; click to open a popover list |
+| Size | File size in human-readable format — sortable |
+| Alt Text | "No alt" badge when an image is embedded without alt text |
+| Date | Upload date — sortable |
+
+### Scan states
+
+- **Scan required** — the index has not been built yet (or was cleared)
+- **Unused** — the index is built and this file has no detected references
+- **N posts** — the file is referenced by N posts; click to see them
+
+---
+
+## Architecture
+
+### Scanner
+
+The scanner runs as a WP-Cron job in batches of 50 posts. It indexes four reference types:
+
+| Type | Source |
+|---|---|
+| `block` | Gutenberg block attributes (`core/image`, `core/cover`, `core/gallery`, etc.) |
+| `classic` | `<img>` and `<a>` tags in classic editor HTML |
+| `featured_image` | `_thumbnail_id` post meta |
+| `postmeta` | Other meta keys returning attachment IDs (configurable via `media_audit_scanned_meta_keys` filter) |
+
+Alt text detection for block images reads the rendered `<img alt>` in `innerHTML` via `WP_HTML_Tag_Processor`, not the block's JSON attributes (which don't store alt for `core/image`).
+
+### REST API
 
 ```
-attached/
-├── attached.php
-├── uninstall.php
-├── CLAUDE.md              ← Claude Code reads this automatically
-└── includes/
-    └── .gitkeep
+GET /wp-json/attached-media-audit/v1/media
 ```
 
-Copy the scaffold files below into each site's plugin folder. They should be identical on both sites.
+Parameters: `page`, `per_page`, `search`, `orderby` (`title|date|usage|file_size`), `order` (`asc|desc`), `type_filter`, `ref_filter`, `usage_filter` (`used|unused`).
+
+Returns server-paginated results with `X-WP-Total` and `X-WP-TotalPages` headers.
+
+### Database
+
+Table: `{prefix}media_audit_index`
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `bigint` | Auto-increment primary key |
+| `attachment_id` | `bigint` | Foreign key to `wp_posts.ID` |
+| `source_post_id` | `bigint` | Post where the reference was found |
+| `reference_type` | `varchar(20)` | `block`, `classic`, `featured_image`, or `postmeta` |
+| `missing_alt` | `tinyint(1)` | 1 when the image is used in content without alt text |
+| `last_scanned` | `datetime` | When this row was last written |
+
+File sizes are cached in post meta (`_Attached_Media_Audit_filesize`) on the first scan to support fast SQL `ORDER BY`.
+
+### DB versioning
+
+The DB version is tracked in the `Attached_Media_Audit_db_version` option. Bumping `ATTACHED_MEDIA_AUDIT_VERSION` in `attached.php` triggers `dbDelta()` automatically on the next page load via `Plugin::maybe_upgrade_db()`.
 
 ---
 
-## Plugin Scaffold
+## Development
 
-### `attached.php`
+```bash
+pnpm install
+pnpm build      # production build
+pnpm start      # watch mode
+```
+
+**Entry:** `src/media-audit/index.js`  
+**Output:** `build/media-audit-admin.{js,css,asset.php}`  
+**Webpack:** extends `@wordpress/scripts` defaults via `webpack.config.js`
+
+### Key source files
+
+```
+includes/
+  db/class-index-table.php          — schema, get_attachments_rest(), replace_for_post()
+  rest/class-media-controller.php   — REST endpoint, prepare_item()
+  scanner/class-block-parser.php    — Gutenberg block attachment extraction
+  scanner/class-classic-parser.php  — Classic editor HTML parsing
+  scanner/class-meta-parser.php     — Post meta scanning
+  scanner/class-post-scanner.php    — Orchestrates parsers, writes to index
+  scanner/class-batch-runner.php    — WP-Cron batching, progress tracking
+  admin/class-ajax-handler.php      — AJAX actions (scan, progress, locations, clear)
+  admin/class-admin-menu.php        — Asset enqueue, wpMediaAudit JS global
+  class-plugin.php                  — Bootstrap, DB upgrade check, hooks
+
+src/media-audit/
+  App.js                            — DataViews component, field definitions
+  hooks/useMediaAudit.js            — REST fetch with AbortController
+  hooks/useScanProgress.js          — AJAX polling, scan state machine
+  components/ScanToolbar.js         — Scan Now + Clear Index + progress bar
+  components/ThumbnailCell.js       — Image preview or dashicon fallback
+  components/TitleCell.js           — Filename + hover row actions
+  components/UsedInCell.js          — Toggleable Popover listing source posts
+  styles.scss
+```
+
+---
+
+## Hooks
+
+**`media_audit_scanned_meta_keys`** — Filter the list of post meta keys the scanner checks for attachment IDs.
 
 ```php
-<?php
-/**
- * Plugin Name: Attached
- * Plugin URI:  https://github.com/your-handle/attached
- * Description: Extends the WordPress Media Library to show whether each item is used anywhere on the site.
- * Version:     0.1.0
- * Author:      Your Name
- * License:     GPL-2.0-or-later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: attached
- */
-
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
-
-define( 'ATTACHED_VERSION', '0.1.0' );
-define( 'ATTACHED_PATH', plugin_dir_path( __FILE__ ) );
-define( 'ATTACHED_URL', plugin_dir_url( __FILE__ ) );
-
-register_activation_hook( __FILE__, 'attached_activate' );
-function attached_activate() {
-	// Activation tasks will go here.
-}
-
-// Bootstrap — the tool will build this out.
-```
-
-### `uninstall.php`
-
-```php
-<?php
-if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
-	exit;
-}
-
-// Cleanup tasks will go here (delete options, transients, etc.)
+add_filter( 'media_audit_scanned_meta_keys', function( array $keys ): array {
+    $keys[] = 'my_custom_image_field';
+    return $keys;
+} );
 ```
 
 ---
 
-## Context File (`CLAUDE.md` / Copilot Instructions)
+## License
 
-Place this file at the plugin root. Claude Code reads `CLAUDE.md` automatically. For Copilot, reference it manually in your first message or place it at `.github/copilot-instructions.md` in the project root.
-
-```markdown
-# Attached — WordPress Plugin
-
-## Environment
-- WordPress Studio (local development)
-- WordPress coding standards (WPCS) apply
-- PHP 8.1+
-
-## Plugin purpose
-Extends the existing Media Library screen to surface whether each media item
-is used anywhere on the site, and where. Adds filter controls to the existing
-Media Library — does not create new admin pages.
-
-## Constraints
-- No external dependencies or Composer packages
-- No build step — plain PHP, CSS, and JS only
-- Use the `attached_` prefix for all functions, hooks, options, and transients
-- Escape all output, sanitize all input, use nonces where appropriate
-- Query performance matters — the Media Library can have thousands of items
-```
-
----
-
-## The Prompt
-
-Use the same prompt verbatim for both tools. Fill in the actual plugin folder path before running.
-
-```
-I'm working in a local WordPress development site running in WordPress Studio.
-The plugin folder is at [YOUR PATH HERE]. I want to build a WordPress plugin
-called "Attached" that audits media library usage.
-
-Rather than adding a new admin page, I want to extend the existing Media
-Library screen. It should add a filter that lets me view all media, or narrow
-down to only used or only unused items. For used items, I should be able to
-see where they're used with links to edit those posts/pages.
-
-Before writing any code, I'd like you to plan the approach. Walk me through
-how you'd structure the plugin, how you'd determine whether a media item is
-"used", and what edge cases or limitations we should be aware of. Once I'm
-happy with the plan, we'll build it.
-```
-
----
-
-## What to Watch For
-
-These are the moments that will differentiate the two tools.
-
-### In the planning phase
-- Does it mention **featured images** (`_thumbnail_id` postmeta) unprompted?
-- Does it mention **Gutenberg block attributes** (attachment IDs in block comments) vs. just URL matching?
-- Does it flag **image size variants** (`photo-300x200.jpg` ≠ `photo.jpg`)?
-- Does it mention **performance** considerations for large libraries?
-- Does it acknowledge its own **limitations** honestly?
-
-### In the build phase
-- Does it use proper WordPress APIs (`WP_Query`, `get_posts`) or raw SQL shortcuts?
-- Does it hook into the right places (`restrict_manage_posts`, `parse_query`) to extend the existing Media Library rather than reinvent it?
-- Does the plugin **actually work** on first activation, or does it need debugging?
-
-### In follow-up rounds
-Plan at least one follow-up after the initial build. A good candidate:
-
-> "I noticed it's not catching images that are only set as featured images — can you fix that?"
-
-How each tool responds to being told it missed something is often more revealing than the initial output.
-
----
-
-## Scoring
-
-| Criterion | Claude Code | GitHub Copilot |
-|-----------|-------------|----------------|
-| Featured image detection (unprompted) | | |
-| Gutenberg block ID detection | | |
-| Hooks into existing Media Library screen | | |
-| Works on first activation | | |
-| Code quality / WordPress standards | | |
-| Honest about limitations | | |
-| Handles follow-up correction well | | |
+GPL-2.0-or-later — see [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
