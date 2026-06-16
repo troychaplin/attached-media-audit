@@ -102,21 +102,16 @@ tr:hover .wp-media-audit-row-actions,
 }
 
 .wp-media-audit-used-in {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+	display: inline-flex;
+	align-items: center;
 }
 
-.wp-media-audit-used-in-list {
-	margin-top: 6px;
-	border: 1px solid #dcdcde;
-	border-radius: 4px;
-	background: #fff;
+.wp-media-audit-popover {
+	padding: 12px 16px;
 	min-width: 220px;
-	max-width: 340px;
-	max-height: 260px;
+	max-width: 360px;
+	max-height: 320px;
 	overflow-y: auto;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .wp-media-audit-no-alt {
