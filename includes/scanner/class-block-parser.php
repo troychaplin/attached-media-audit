@@ -55,8 +55,12 @@ class Block_Parser {
 			$attrs = $block['attrs'] ?? array();
 
 			if ( isset( self::BLOCK_MAP[ $name ] ) ) {
-				$alt_key     = self::ALT_MAP[ $name ] ?? null;
-				$missing_alt = ( null !== $alt_key ) && '' === ( $attrs[ $alt_key ] ?? '' );
+				// Alt text for core/image and core/media-text is sourced from the
+				// rendered <img alt> in innerHTML, not from the block's JSON attrs,
+				// so it must be read from the markup rather than $attrs.
+				$missing_alt = isset( self::ALT_MAP[ $name ] )
+					? self::img_alt_missing( $block['innerHTML'] ?? '' )
+					: false;
 
 				foreach ( self::BLOCK_MAP[ $name ] as $key ) {
 					if ( ! isset( $attrs[ $key ] ) ) {
@@ -81,5 +85,25 @@ class Block_Parser {
 				self::walk( $block['innerBlocks'], $rows );
 			}
 		}
+	}
+
+	/**
+	 * Determine whether the first <img> in a block's markup is missing alt text.
+	 *
+	 * @param string $html Block innerHTML.
+	 * @return bool True when no <img> is found or its alt attribute is empty.
+	 */
+	private static function img_alt_missing( string $html ): bool {
+		if ( '' === trim( $html ) ) {
+			return true;
+		}
+
+		$processor = new \WP_HTML_Tag_Processor( $html );
+		if ( ! $processor->next_tag( 'img' ) ) {
+			return true;
+		}
+
+		$alt = $processor->get_attribute( 'alt' );
+		return ( null === $alt || '' === trim( (string) $alt ) );
 	}
 }
