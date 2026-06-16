@@ -32,9 +32,26 @@ export default function App() {
 	const [ scanVersion, setScanVersion ] = useState( 0 );
 
 	const { items, totalItems, isLoading } = useMediaAudit( view, scanVersion );
-	const { status, progress, total, startScan } = useScanProgress( {
+	const { status, progress, total, startScan, resetToIdle } = useScanProgress( {
 		onComplete: () => setScanVersion( ( v ) => v + 1 ),
 	} );
+
+	const handleClear = useCallback( async () => {
+		// eslint-disable-next-line no-alert
+		if ( ! window.confirm(
+			__( 'Clear the media index? All scan data will be removed. Run a new scan to rebuild it.', 'wp-media-audit' )
+		) ) return;
+
+		const { ajaxUrl, nonce } = window.wpMediaAudit;
+		const body = new FormData();
+		body.append( 'action', 'media_audit_clear_index' );
+		body.append( 'nonce', nonce );
+
+		await fetch( ajaxUrl, { method: 'POST', body } ).catch( () => {} );
+
+		resetToIdle();
+		setScanVersion( ( v ) => v + 1 );
+	}, [ resetToIdle ] );
 
 	const handleDeleteItems = useCallback( async ( selectedItems ) => {
 		const count = selectedItems.length;
@@ -161,22 +178,12 @@ export default function App() {
 				enableSorting: false,
 				enableGlobalSearch: false,
 				render: ( { item } ) => {
-					if ( item.media_type !== 'Image' ) return null;
-					if ( item.content_alt_missing ) {
-						return (
-							<span className="wp-media-audit-no-alt wp-media-audit-no-alt--content">
-								{ __( 'No alt (content)', 'wp-media-audit' ) }
-							</span>
-						);
-					}
-					if ( ! item.alt_text ) {
-						return (
-							<span className="wp-media-audit-no-alt">
-								{ __( 'No alt (file)', 'wp-media-audit' ) }
-							</span>
-						);
-					}
-					return <span className="wp-media-audit-has-alt">{ item.alt_text }</span>;
+					if ( item.media_type !== 'Image' || ! item.content_alt_missing ) return null;
+					return (
+						<span className="wp-media-audit-no-alt">
+							{ __( 'No alt', 'wp-media-audit' ) }
+						</span>
+					);
 				},
 			},
 			{
@@ -221,6 +228,7 @@ export default function App() {
 				progress={ progress }
 				total={ total }
 				onScan={ startScan }
+				onClear={ handleClear }
 			/>
 			<DataViews
 				data={ items }

@@ -54,5 +54,10 @@ export default function useScanProgress( { onComplete } = {} ) {
 			.catch( () => {} );
 	}, [] );
 
-	return { ...state, startScan };
+	const resetToIdle = useCallback( () => {
+		setState( { status: 'idle', progress: 0, total: 0 } );
+		prevStatusRef.current = 'idle';
+	}, [] );
+
+	return { ...state, startScan, resetToIdle };
 }

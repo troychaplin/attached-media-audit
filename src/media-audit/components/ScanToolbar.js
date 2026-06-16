@@ -1,7 +1,7 @@
 import { Button } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 
-export default function ScanToolbar( { status, progress, total, onScan } ) {
+export default function ScanToolbar( { status, progress, total, onScan, onClear } ) {
 	const isScanning = status === 'scanning';
 	const pct = total > 0 ? Math.round( ( progress / total ) * 100 ) : 0;
 
@@ -17,6 +17,9 @@ export default function ScanToolbar( { status, progress, total, onScan } ) {
 			</div>
 			<Button variant="primary" onClick={ onScan } disabled={ isScanning }>
 				{ __( 'Scan Now', 'wp-media-audit' ) }
+			</Button>
+			<Button variant="secondary" isDestructive onClick={ onClear } disabled={ isScanning }>
+				{ __( 'Clear Index', 'wp-media-audit' ) }
 			</Button>
 			{ isScanning && (
 				<div className="wp-media-audit-progress">

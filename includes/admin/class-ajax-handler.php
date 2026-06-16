@@ -7,9 +7,10 @@ use WP_Media_Audit\DB\Index_Table;
 class Ajax_Handler {
 
 	public static function register(): void {
-		add_action( 'wp_ajax_media_audit_progress',  array( __CLASS__, 'handle_progress' ) );
-		add_action( 'wp_ajax_media_audit_scan',      array( __CLASS__, 'handle_scan' ) );
-		add_action( 'wp_ajax_media_audit_locations', array( __CLASS__, 'handle_locations' ) );
+		add_action( 'wp_ajax_media_audit_progress',    array( __CLASS__, 'handle_progress' ) );
+		add_action( 'wp_ajax_media_audit_scan',        array( __CLASS__, 'handle_scan' ) );
+		add_action( 'wp_ajax_media_audit_locations',   array( __CLASS__, 'handle_locations' ) );
+		add_action( 'wp_ajax_media_audit_clear_index', array( __CLASS__, 'handle_clear_index' ) );
 	}
 
 	public static function handle_progress(): void {
@@ -59,5 +60,21 @@ class Ajax_Handler {
 		);
 
 		wp_send_json_success( $locations );
+	}
+
+	public static function handle_clear_index(): void {
+		check_ajax_referer( 'media_audit_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Unauthorized', 403 );
+		}
+		Batch_Runner::unschedule();
+		Index_Table::truncate();
+		delete_transient( Batch_Runner::CURSOR_KEY );
+		update_option( Batch_Runner::PROGRESS_KEY, array(
+			'status'   => 'idle',
+			'progress' => 0,
+			'total'    => 0,
+		), false );
+		wp_send_json_success( array( 'message' => 'Index cleared' ) );
 	}
 }
