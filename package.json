@@ -1,0 +1,25 @@
+{
+	"name": "wp-media-audit",
+	"private": true,
+	"packageManager": "pnpm@10.33.4",
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@parcel/watcher",
+			"core-js",
+			"core-js-pure",
+			"unrs-resolver"
+		]
+	},
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start"
+	},
+	"devDependencies": {
+		"@wordpress/api-fetch": "^7.47.0",
+		"@wordpress/components": "^34.0.0",
+		"@wordpress/dataviews": "^15.0.0",
+		"@wordpress/element": "^7.0.0",
+		"@wordpress/i18n": "^6.20.0",
+		"@wordpress/scripts": "^32.3.0"
+	}
+}

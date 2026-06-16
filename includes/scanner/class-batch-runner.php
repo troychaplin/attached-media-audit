@@ -51,6 +51,11 @@ class Batch_Runner {
 		$after_id = (int) get_transient( self::CURSOR_KEY );
 		$total    = self::get_total_post_count();
 
+		// Cache file sizes for all attachments on the first batch of a fresh scan.
+		if ( 0 === $after_id ) {
+			self::cache_attachment_file_sizes();
+		}
+
 		$scanner = new Post_Scanner( self::get_all_attachment_ids() );
 		$ids     = self::get_batch( $after_id );
 
@@ -156,6 +161,36 @@ class Batch_Runner {
 			)
 		);
 		// phpcs:enable
+	}
+
+	private static function cache_attachment_file_sizes(): void {
+		global $wpdb;
+		// Only process attachments that don't already have the cached meta.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$ids = $wpdb->get_col(
+			"SELECT p.ID FROM {$wpdb->posts} p
+			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_wp_media_audit_filesize'
+			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
+			AND pm.meta_id IS NULL"
+		);
+
+		foreach ( $ids as $id ) {
+			$id        = (int) $id;
+			$file_size = 0;
+			$meta      = wp_get_attachment_metadata( $id );
+			if ( is_array( $meta ) && ! empty( $meta['filesize'] ) ) {
+				$file_size = (int) $meta['filesize'];
+			}
+			if ( ! $file_size ) {
+				$path = get_attached_file( $id );
+				if ( $path && file_exists( $path ) ) {
+					$file_size = (int) filesize( $path );
+				}
+			}
+			if ( $file_size > 0 ) {
+				update_post_meta( $id, '_wp_media_audit_filesize', $file_size );
+			}
+		}
 	}
 
 	private static function get_all_attachment_ids(): array {
