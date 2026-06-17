@@ -61,6 +61,10 @@ class Batch_Runner {
 		// on batch 0 risked exceeding max_execution_time on large sites.
 		self::cache_attachment_file_sizes( self::BATCH_SIZE );
 
+		// Defer summary maintenance: per-post writes skip the incremental
+		// refresh, and the whole projection is rebuilt once when the scan ends.
+		Index_Table::$defer_summary = true;
+
 		$scanner = new Post_Scanner( self::get_all_attachment_ids() );
 		$ids     = self::get_batch( $after_id );
 
@@ -77,7 +81,9 @@ class Batch_Runner {
 		$done     = (int) ( $progress['progress'] ?? 0 ) + count( $ids );
 
 		if ( count( $ids ) < self::BATCH_SIZE ) {
-			// Final (short) batch — done.
+			// Final (short) batch — done. Rebuild the denormalized summary from
+			// the freshly populated index in one set-based pass.
+			Index_Table::rebuild_summary();
 			delete_transient( self::CURSOR_KEY );
 			update_option( self::INDEX_BUILT_KEY, true, false );
 			update_option( self::PROGRESS_KEY, array(

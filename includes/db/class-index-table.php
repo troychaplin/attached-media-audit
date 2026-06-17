@@ -5,6 +5,16 @@ class Index_Table {
 
 	const TABLE_NAME = 'media_audit_index';
 
+	/** Denormalized one-row-per-attachment projection used by the read path. */
+	const SUMMARY_TABLE_NAME = 'media_audit_summary';
+
+	/**
+	 * When true, writes skip incremental summary refresh. The batch scanner sets
+	 * this so a full scan does one set-based rebuild at the end instead of
+	 * refreshing the summary on every per-post write.
+	 */
+	public static bool $defer_summary = false;
+
 	/** Object-cache group for list-query results. */
 	const CACHE_GROUP = 'media_audit';
 
@@ -36,9 +46,15 @@ class Index_Table {
 		return $wpdb->prefix . self::TABLE_NAME;
 	}
 
+	public static function summary_table_name(): string {
+		global $wpdb;
+		return $wpdb->prefix . self::SUMMARY_TABLE_NAME;
+	}
+
 	public static function create(): void {
 		global $wpdb;
-		$table      = self::table_name();
+		$table           = self::table_name();
+		$summary         = self::summary_table_name();
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
@@ -54,22 +70,66 @@ class Index_Table {
 			KEY att_type (attachment_id, reference_type)
 		) {$charset_collate};";
 
+		// Denormalized projection: one indexed row per attachment so the list
+		// query is a flat scan — no GROUP BY, no CAST, no postmeta join.
+		$summary_sql = "CREATE TABLE IF NOT EXISTS {$summary} (
+			attachment_id bigint(20) unsigned NOT NULL,
+			mime_type varchar(100) NOT NULL DEFAULT '',
+			media_type varchar(16) NOT NULL DEFAULT 'Document',
+			post_title text NOT NULL,
+			post_date datetime NOT NULL,
+			file_size bigint(20) unsigned NOT NULL DEFAULT 0,
+			alt_text text NOT NULL,
+			usage_count int unsigned NOT NULL DEFAULT 0,
+			missing_alt tinyint(1) NOT NULL DEFAULT 0,
+			has_block tinyint(1) NOT NULL DEFAULT 0,
+			has_featured_image tinyint(1) NOT NULL DEFAULT 0,
+			has_classic tinyint(1) NOT NULL DEFAULT 0,
+			has_postmeta tinyint(1) NOT NULL DEFAULT 0,
+			PRIMARY KEY (attachment_id),
+			KEY media_type (media_type),
+			KEY usage_count (usage_count),
+			KEY file_size (file_size),
+			KEY post_date (post_date),
+			KEY post_title (post_title(191)),
+			KEY mt_date (media_type, post_date)
+		) {$charset_collate};";
+
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+		dbDelta( $summary_sql );
 	}
 
 	public static function drop(): void {
 		global $wpdb;
-		$table = self::table_name();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$table   = self::table_name();
+		$summary = self::summary_table_name();
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$summary}" );
+		// phpcs:enable
 	}
 
+	/**
+	 * Clear index rows. Does NOT clear the summary projection — a fresh scan
+	 * leaves the previous summary in place so the list keeps showing the last
+	 * completed results until the new scan rebuilds it. Use truncate_summary()
+	 * for an explicit "clear everything".
+	 */
 	public static function truncate(): void {
 		global $wpdb;
 		$table = self::table_name();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->query( "DELETE FROM {$table}" );
+		self::flush_cache();
+	}
+
+	/** Empty the summary projection (used by the explicit "Clear index" action). */
+	public static function truncate_summary(): void {
+		global $wpdb;
+		$summary = self::summary_table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( "DELETE FROM {$summary}" );
 		self::flush_cache();
 	}
 
@@ -84,24 +144,159 @@ class Index_Table {
 		$table = self::table_name();
 		$now   = current_time( 'mysql' );
 
+		// Attachments whose aggregates may change: the ones previously linked to
+		// this post plus the ones now being written. Captured before the delete.
+		$affected = self::attachment_ids_for_post( $source_post_id );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->delete( $table, array( 'source_post_id' => $source_post_id ), array( '%d' ) );
 
-		foreach ( $rows as $row ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->insert(
-				$table,
-				array(
-					'attachment_id'  => (int) $row['attachment_id'],
-					'source_post_id' => $source_post_id,
-					'reference_type' => sanitize_key( $row['reference_type'] ),
-					'missing_alt'    => isset( $row['missing_alt'] ) ? (int) $row['missing_alt'] : 0,
-					'last_scanned'   => $now,
-				),
-				array( '%d', '%d', '%s', '%d', '%s' )
-			);
+		if ( $rows ) {
+			// Single multi-row INSERT instead of one query per row — far fewer
+			// round-trips during a full scan.
+			$placeholders = array();
+			$values       = array();
+			foreach ( $rows as $row ) {
+				$attachment_id = (int) $row['attachment_id'];
+				$affected[]    = $attachment_id;
+				$placeholders[] = '(%d, %d, %s, %d, %s)';
+				$values[]      = $attachment_id;
+				$values[]      = $source_post_id;
+				$values[]      = sanitize_key( $row['reference_type'] );
+				$values[]      = isset( $row['missing_alt'] ) ? (int) $row['missing_alt'] : 0;
+				$values[]      = $now;
+			}
+
+			$sql = "INSERT INTO {$table}
+				(attachment_id, source_post_id, reference_type, missing_alt, last_scanned)
+				VALUES " . implode( ', ', $placeholders );
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( $wpdb->prepare( $sql, ...$values ) );
+			// phpcs:enable
 		}
 
+		if ( ! self::$defer_summary ) {
+			self::refresh_summary_for_attachments( array_unique( $affected ) );
+		}
+
+		self::flush_cache();
+	}
+
+	/** Distinct attachment IDs currently linked to a source post. */
+	private static function attachment_ids_for_post( int $source_post_id ): array {
+		global $wpdb;
+		$table = self::table_name();
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT attachment_id FROM {$table} WHERE source_post_id = %d",
+				$source_post_id
+			)
+		);
+		// phpcs:enable
+		return array_map( 'intval', $ids );
+	}
+
+	/** SQL CASE expression mapping a post_mime_type column to a media_type label. */
+	private static function media_type_case_sql( string $mime_col ): string {
+		return "CASE
+			WHEN {$mime_col} LIKE 'image/%' THEN 'Image'
+			WHEN {$mime_col} LIKE 'video/%' THEN 'Video'
+			WHEN {$mime_col} LIKE 'audio/%' THEN 'Audio'
+			ELSE 'Document'
+		END";
+	}
+
+	/**
+	 * Insert summary rows for a set of attachments via INSERT ... SELECT.
+	 *
+	 * Aggregates come from correlated subqueries (not a derived table) to stay
+	 * compatible with the SQLite integration. Caller is responsible for deleting
+	 * any existing rows for the same scope first.
+	 *
+	 * The SELECT contains literal LIKE patterns ('image/%'), so it is NOT run
+	 * through wpdb::prepare (which mishandles bare %). The only dynamic input is
+	 * the scope fragment, which callers build from already-sanitized integers.
+	 *
+	 * @param string $scope_where Extra WHERE fragment (e.g. 'AND p.ID IN (1,2)'); may be empty.
+	 */
+	private static function insert_summary_rows( string $scope_where = '' ): void {
+		global $wpdb;
+		$summary     = self::summary_table_name();
+		$index       = self::table_name();
+		$posts_table = $wpdb->posts;
+		$postmeta    = $wpdb->postmeta;
+		$media_case  = self::media_type_case_sql( 'p.post_mime_type' );
+
+		$sql = "INSERT INTO {$summary}
+			(attachment_id, mime_type, media_type, post_title, post_date, file_size, alt_text,
+			 usage_count, missing_alt, has_block, has_featured_image, has_classic, has_postmeta)
+			SELECT
+				p.ID,
+				p.post_mime_type,
+				{$media_case},
+				p.post_title,
+				p.post_date,
+				CAST(COALESCE(pm_size.meta_value, 0) AS UNSIGNED),
+				COALESCE(pm_alt.meta_value, ''),
+				(SELECT COUNT(*) FROM {$index} idx WHERE idx.attachment_id = p.ID),
+				(SELECT COALESCE(MAX(idx.missing_alt), 0) FROM {$index} idx WHERE idx.attachment_id = p.ID),
+				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'block'),
+				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'featured_image'),
+				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'classic'),
+				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'postmeta')
+			FROM {$posts_table} p
+			LEFT JOIN {$postmeta} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_Attached_Media_Audit_filesize'
+			LEFT JOIN {$postmeta} pm_alt ON pm_alt.post_id = p.ID AND pm_alt.meta_key = '_wp_attachment_image_alt'
+			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
+			{$scope_where}";
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( $sql );
+		// phpcs:enable
+	}
+
+	/** Whether the index table holds any rows (used to decide an upgrade rebuild). */
+	public static function has_index_rows(): bool {
+		global $wpdb;
+		$table = self::table_name();
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (bool) $wpdb->get_var( "SELECT 1 FROM {$table} LIMIT 1" );
+		// phpcs:enable
+	}
+
+	/** Rebuild the entire summary projection from the index. Run at scan completion. */
+	public static function rebuild_summary(): void {
+		global $wpdb;
+		$summary = self::summary_table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( "DELETE FROM {$summary}" );
+		self::insert_summary_rows();
+		self::flush_cache();
+	}
+
+	/**
+	 * Recompute summary rows for specific attachments (incremental sync).
+	 * Deleted/non-attachment IDs simply drop out (the SELECT won't match them).
+	 *
+	 * @param int[] $ids
+	 */
+	public static function refresh_summary_for_attachments( array $ids ): void {
+		global $wpdb;
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+		if ( ! $ids ) {
+			return;
+		}
+		$summary = self::summary_table_name();
+		// Safe to inline: every element is an intval'd integer.
+		$in = implode( ', ', $ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "DELETE FROM {$summary} WHERE attachment_id IN ({$in})" );
+		// phpcs:enable
+
+		self::insert_summary_rows( "AND p.ID IN ({$in})" );
 		self::flush_cache();
 	}
 
@@ -297,8 +492,10 @@ class Index_Table {
 	/**
 	 * Return paginated attachments for the REST endpoint.
 	 *
-	 * Supports MIME type grouping, reference_type filtering via conditional HAVING
-	 * (SQLite-compatible — no subquery), and used/unused toggling.
+	 * Reads the denormalized summary table: a flat indexed scan with no GROUP BY,
+	 * no CAST, and no postmeta join. media_type is an exact indexed match,
+	 * reference_type maps to boolean columns, and used/unused toggles on
+	 * usage_count.
 	 *
 	 * @param string $search
 	 * @param int    $per_page
@@ -321,9 +518,7 @@ class Index_Table {
 		string $usage_filter = ''
 	): array {
 		global $wpdb;
-		$table       = self::table_name();
-		$posts_table = $wpdb->posts;
-		$offset      = ( $page - 1 ) * $per_page;
+		$offset = ( $page - 1 ) * $per_page;
 
 		// Serve from cache when an identical query was run since the last write.
 		$cache_key = 'rest_' . md5( wp_json_encode( array(
@@ -334,123 +529,77 @@ class Index_Table {
 			return $cached;
 		}
 
-		// Attachment base condition (always applied).
-		$base_where = "p.post_type = 'attachment' AND p.post_status = 'inherit'";
+		// Flat query against the denormalized summary projection: no GROUP BY,
+		// no CAST, no postmeta join. Every filter/sort column is indexed.
+		$summary = self::summary_table_name();
 
-		// Additional WHERE parts built from validated inputs.
-		$extra_where_parts = array();
-		$extra_where_args  = array();
+		$where_parts = array();
+		$args        = array();
 
 		if ( $search ) {
-			$extra_where_parts[] = 'p.post_title LIKE %s';
-			$extra_where_args[]  = '%' . $wpdb->esc_like( $search ) . '%';
+			// Leading-wildcard LIKE cannot use the post_title index, so search is
+			// a table scan over the summary rows. Acceptable at this scale (one
+			// row per attachment); revisit with FULLTEXT/prefix search if the
+			// media library grows into the hundreds of thousands.
+			$where_parts[] = 's.post_title LIKE %s';
+			$args[]        = '%' . $wpdb->esc_like( $search ) . '%';
 		}
 
-		// MIME type grouping — safe to interpolate (hardcoded strings, no user input).
-		switch ( $media_type ) {
-			case 'Image':
-				$extra_where_parts[] = "p.post_mime_type LIKE 'image/%'";
-				break;
-			case 'Video':
-				$extra_where_parts[] = "p.post_mime_type LIKE 'video/%'";
-				break;
-			case 'Audio':
-				$extra_where_parts[] = "p.post_mime_type LIKE 'audio/%'";
-				break;
-			case 'Document':
-				$extra_where_parts[] = "p.post_mime_type NOT LIKE 'image/%' AND p.post_mime_type NOT LIKE 'video/%' AND p.post_mime_type NOT LIKE 'audio/%'";
-				break;
+		// media_type is a stored, indexed label — exact match, no LIKE scan.
+		if ( in_array( $media_type, array( 'Image', 'Video', 'Audio', 'Document' ), true ) ) {
+			$where_parts[] = 's.media_type = %s';
+			$args[]        = $media_type;
 		}
 
-		$extra_where_sql = $extra_where_parts ? ' AND ' . implode( ' AND ', $extra_where_parts ) : '';
-		$full_where_sql  = $base_where . $extra_where_sql;
-
-		// HAVING clause for items query.
-		$having_sql  = '';
-		$having_args = array();
-		if ( $reference_type ) {
-			// Conditional SUM avoids a subquery and is SQLite-compatible.
-			$having_sql    = 'HAVING SUM(CASE WHEN idx.reference_type = %s THEN 1 ELSE 0 END) > 0';
-			$having_args[] = $reference_type;
-		} elseif ( 'unused' === $usage_filter ) {
-			$having_sql = 'HAVING COUNT(idx.id) = 0';
-		} elseif ( 'used' === $usage_filter ) {
-			$having_sql = 'HAVING COUNT(idx.id) > 0';
-		}
-
-		// ORDER BY from allowlist — never interpolate raw input.
-		$order_map = array(
-			'title'     => 'p.post_title',
-			'date'      => 'p.post_date',
-			'usage'     => 'COUNT(idx.id)',
-			'file_size' => 'CAST(pm_size.meta_value AS UNSIGNED)',
+		// reference_type maps to a boolean column; takes precedence over the
+		// used/unused toggle (a reference_type match is inherently "used").
+		$ref_col_map = array(
+			'block'          => 'has_block',
+			'featured_image' => 'has_featured_image',
+			'classic'        => 'has_classic',
+			'postmeta'       => 'has_postmeta',
 		);
-		$order_col = $order_map[ $orderby ] ?? 'p.post_date';
+		if ( isset( $ref_col_map[ $reference_type ] ) ) {
+			$where_parts[] = 's.' . $ref_col_map[ $reference_type ] . ' = 1';
+		} elseif ( 'unused' === $usage_filter ) {
+			$where_parts[] = 's.usage_count = 0';
+		} elseif ( 'used' === $usage_filter ) {
+			$where_parts[] = 's.usage_count > 0';
+		}
+
+		$where_sql = $where_parts ? 'WHERE ' . implode( ' AND ', $where_parts ) : '';
+
+		// ORDER BY from allowlist — never interpolate raw input. A secondary key
+		// on attachment_id makes pagination deterministic when the primary key
+		// has ties (e.g. equal file sizes).
+		$order_map = array(
+			'title'     => 's.post_title',
+			'date'      => 's.post_date',
+			'usage'     => 's.usage_count',
+			'file_size' => 's.file_size',
+		);
+		$order_col = $order_map[ $orderby ] ?? 's.post_date';
 		$order_dir = ( 'ASC' === strtoupper( $order ) ) ? 'ASC' : 'DESC';
 
-		// Count: flat queries to avoid FROM(subquery), which breaks on SQLite.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		if ( $reference_type ) {
-			// Count attachments that have at least one row of this reference_type.
-			$count = self::count_query(
-				"SELECT COUNT(DISTINCT idx.attachment_id)
-				FROM {$table} idx
-				INNER JOIN {$posts_table} p ON p.ID = idx.attachment_id
-				WHERE idx.reference_type = %s AND {$full_where_sql}",
-				array_merge( array( $reference_type ), $extra_where_args )
-			);
-		} elseif ( 'unused' === $usage_filter ) {
-			$total_count = self::count_query(
-				"SELECT COUNT(*) FROM {$posts_table} p WHERE {$full_where_sql}",
-				$extra_where_args
-			);
-			$used_count = self::count_query(
-				"SELECT COUNT(DISTINCT idx.attachment_id)
-				FROM {$table} idx
-				INNER JOIN {$posts_table} p ON p.ID = idx.attachment_id
-				WHERE {$full_where_sql}",
-				$extra_where_args
-			);
-			$count = max( 0, $total_count - $used_count );
-		} elseif ( 'used' === $usage_filter ) {
-			$count = self::count_query(
-				"SELECT COUNT(DISTINCT idx.attachment_id)
-				FROM {$table} idx
-				INNER JOIN {$posts_table} p ON p.ID = idx.attachment_id
-				WHERE {$full_where_sql}",
-				$extra_where_args
-			);
-		} else {
-			$count = self::count_query(
-				"SELECT COUNT(*) FROM {$posts_table} p WHERE {$full_where_sql}",
-				$extra_where_args
-			);
-		}
+		// Single flat count for every filter combination.
+		$count = self::count_query( "SELECT COUNT(*) FROM {$summary} s {$where_sql}", $args );
 
-		// Items query.
-		$items_args = array_merge( $extra_where_args, $having_args, array( $per_page, $offset ) );
-
-		$postmeta_table = $wpdb->postmeta;
-
-		$items = $wpdb->get_results(
+		$items_args = array_merge( $args, array( $per_page, $offset ) );
+		$items      = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
-					p.ID,
-					p.post_title,
-					p.post_mime_type,
-					p.post_date,
-					COUNT(idx.id) AS usage_count,
-					COALESCE(MAX(idx.missing_alt), 0) AS content_alt_missing,
-					pm_size.meta_value AS file_size,
-					pm_alt.meta_value AS alt_text
-				FROM {$posts_table} p
-				LEFT JOIN {$table} idx ON idx.attachment_id = p.ID
-				LEFT JOIN {$postmeta_table} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_Attached_Media_Audit_filesize'
-				LEFT JOIN {$postmeta_table} pm_alt ON pm_alt.post_id = p.ID AND pm_alt.meta_key = '_wp_attachment_image_alt'
-				WHERE {$full_where_sql}
-				GROUP BY p.ID
-				{$having_sql}
-				ORDER BY {$order_col} {$order_dir}
+					s.attachment_id AS ID,
+					s.post_title,
+					s.mime_type AS post_mime_type,
+					s.post_date,
+					s.usage_count,
+					s.missing_alt AS content_alt_missing,
+					s.file_size,
+					s.alt_text
+				FROM {$summary} s
+				{$where_sql}
+				ORDER BY {$order_col} {$order_dir}, s.attachment_id {$order_dir}
 				LIMIT %d OFFSET %d",
 				...$items_args
 			)
@@ -472,8 +621,13 @@ class Index_Table {
 	 */
 	public static function delete_for_post( int $source_post_id ): void {
 		global $wpdb;
+		// Attachments that will lose a reference — refresh their summary after.
+		$affected = self::attachment_ids_for_post( $source_post_id );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->delete( self::table_name(), array( 'source_post_id' => $source_post_id ), array( '%d' ) );
+		if ( ! self::$defer_summary ) {
+			self::refresh_summary_for_attachments( $affected );
+		}
 		self::flush_cache();
 	}
 
@@ -483,8 +637,11 @@ class Index_Table {
 	 */
 	public static function delete_for_attachment( int $attachment_id ): void {
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
 		$wpdb->delete( self::table_name(), array( 'attachment_id' => $attachment_id ), array( '%d' ) );
+		// The attachment itself is gone — remove its summary row outright.
+		$wpdb->delete( self::summary_table_name(), array( 'attachment_id' => $attachment_id ), array( '%d' ) );
+		// phpcs:enable
 		self::flush_cache();
 	}
 }

@@ -105,7 +105,21 @@ full scan and a single post save each load the attachment-ID set at most once.
 
 ---
 
-## Phase 3 — Architectural (bigger lifts)
+## Phase 3 — Architectural (bigger lifts) — IMPLEMENTED (v2.1.0)
+
+Status notes:
+- **3.1 / 3.3 / 3.4 implemented.** A `{prefix}media_audit_summary` table (one
+  indexed row per attachment) now backs the read path; the REST list query is a
+  flat scan. `replace_for_post()` uses a single multi-row INSERT. Search
+  limitation documented in code.
+- **3.2 (keyset) intentionally NOT implemented.** DataViews paginates by page
+  number (jump-to-page), which is offset-based. True keyset needs a cursor UI
+  (next/prev or infinite scroll) — a breaking UX change. On the flat indexed
+  summary table OFFSET is cheap, so page-number pagination is retained. Keyset
+  remains a future option gated on a UI change.
+
+Original plan for reference:
+
 
 Target risks #6, #7, #9, and the structural root of #1.
 

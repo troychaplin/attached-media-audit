@@ -21,7 +21,15 @@ class Plugin {
 	private function maybe_upgrade_db(): void {
 		$installed = get_option( 'Attached_Media_Audit_db_version', '0' );
 		if ( version_compare( $installed, ATTACHED_MEDIA_AUDIT_VERSION, '<' ) ) {
+			$is_upgrade = version_compare( $installed, '2.1.0', '<' ) && '0' !== $installed;
 			Index_Table::create();
+			// 2.1.0 introduced the summary projection. On an existing install
+			// that already has index data, populate it once so the list isn't
+			// empty until the next full scan. Fresh installs have nothing to
+			// project and skip this.
+			if ( $is_upgrade && Index_Table::has_index_rows() ) {
+				Index_Table::rebuild_summary();
+			}
 			update_option( 'Attached_Media_Audit_db_version', ATTACHED_MEDIA_AUDIT_VERSION );
 		}
 	}
@@ -54,8 +62,12 @@ class Plugin {
 		add_action( 'delete_attachment', array( Index_Table::class, 'delete_for_attachment' ) );
 
 		// Invalidate the cached attachment-ID set whenever the library changes,
-		// so the scanner validates references against current attachments.
-		add_action( 'add_attachment', array( Batch_Runner::class, 'flush_attachment_ids' ) );
+		// so the scanner validates references against current attachments. A new
+		// upload also gets a summary row (usage 0) so it appears in the list.
+		add_action( 'add_attachment', function( int $post_id ) {
+			Batch_Runner::flush_attachment_ids();
+			Index_Table::refresh_summary_for_attachments( array( $post_id ) );
+		} );
 		add_action( 'delete_attachment', array( Batch_Runner::class, 'flush_attachment_ids' ) );
 	}
 }
