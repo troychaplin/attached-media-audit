@@ -107,6 +107,10 @@ class Media_Controller extends WP_REST_Controller {
 		}
 		if ( $file_size > 0 && ! $cached ) {
 			update_post_meta( $id, '_Attached_Media_Audit_filesize', $file_size );
+			// Self-heal the summary row so the next request reads the size from
+			// the projection instead of hitting the filesystem again, and so
+			// size-sorting is correct for attachments added since the last scan.
+			Index_Table::update_summary_file_size( $id, $file_size );
 		}
 
 		$alt_text = $row->alt_text ?? '';

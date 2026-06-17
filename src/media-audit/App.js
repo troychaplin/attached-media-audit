@@ -148,17 +148,6 @@ export default function App() {
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
-				id: 'usage_status',
-				label: __( 'Usage', 'attached-media-audit' ),
-				enableSorting: false,
-				getValue: ( { item } ) => item.usage_count === 0 ? 'unused' : 'used',
-				elements: [
-					{ value: 'used', label: __( 'Used', 'attached-media-audit' ) },
-					{ value: 'unused', label: __( 'Unused', 'attached-media-audit' ) },
-				],
-				filterBy: { isPrimary: true, operators: [ 'is' ] },
-			},
-			{
 				id: 'usage',
 				label: __( 'Used In', 'attached-media-audit' ),
 				enableSorting: true,

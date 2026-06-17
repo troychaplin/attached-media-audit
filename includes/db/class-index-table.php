@@ -301,6 +301,26 @@ class Index_Table {
 	}
 
 	/**
+	 * Patch a single attachment's cached file size in the summary projection.
+	 *
+	 * Lets the REST read path self-heal a row whose file_size was 0 (e.g. an
+	 * attachment uploaded after the last scan, or one whose size meta wasn't
+	 * cached yet) without a full refresh. No-op if the row doesn't exist.
+	 */
+	public static function update_summary_file_size( int $attachment_id, int $file_size ): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->update(
+			self::summary_table_name(),
+			array( 'file_size' => $file_size ),
+			array( 'attachment_id' => $attachment_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+		self::flush_cache();
+	}
+
+	/**
 	 * Return all rows for the list table, filtered by usage status.
 	 *
 	 * @param string $filter  'all' | 'used' | 'unused'

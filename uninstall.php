@@ -10,4 +10,6 @@ delete_option( 'media_audit_progress' );
 delete_option( 'media_audit_index_built' );
 delete_option( 'Attached_Media_Audit_db_version' );
 delete_transient( 'media_audit_cursor' );
+delete_transient( 'media_audit_summary_cursor' );
+delete_transient( 'media_audit_phase' );
 delete_transient( 'media_audit_attachment_ids' );
