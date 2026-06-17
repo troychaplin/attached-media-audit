@@ -24,11 +24,11 @@ class Plugin {
 			$is_upgrade = version_compare( $installed, '2.1.0', '<' ) && '0' !== $installed;
 			Index_Table::create();
 			// 2.1.0 introduced the summary projection. On an existing install
-			// that already has index data, populate it once so the list isn't
-			// empty until the next full scan. Fresh installs have nothing to
-			// project and skip this.
+			// that already has index data, populate it via a background, chunked
+			// rebuild so the init request stays fast on large libraries. Fresh
+			// installs have nothing to project and skip this.
 			if ( $is_upgrade && Index_Table::has_index_rows() ) {
-				Index_Table::rebuild_summary();
+				Batch_Runner::schedule_summary_rebuild();
 			}
 			update_option( 'Attached_Media_Audit_db_version', ATTACHED_MEDIA_AUDIT_VERSION );
 		}

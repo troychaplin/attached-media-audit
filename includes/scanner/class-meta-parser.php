@@ -17,15 +17,15 @@ class Meta_Parser {
 	}
 
 	/**
-	 * Walk all registered postmeta keys for a post and return attachment IDs found.
+	 * Walk all registered postmeta keys for a post and return candidate
+	 * attachment IDs (every positive integer found). The caller validates which
+	 * candidates are real attachments, so this parser needs no known-ID set.
 	 *
-	 * @param int   $post_id
-	 * @param int[] $known_attachment_ids  All attachment IDs on the site (used to validate candidates).
+	 * @param int $post_id
 	 * @return int[]
 	 */
-	public static function extract( int $post_id, array $known_attachment_ids ): array {
-		$ids      = array();
-		$known    = array_flip( $known_attachment_ids );
+	public static function extract( int $post_id ): array {
+		$ids = array();
 
 		foreach ( self::meta_keys() as $def ) {
 			$raw = get_post_meta( $post_id, $def['key'], true );
@@ -40,7 +40,7 @@ class Meta_Parser {
 			}
 
 			if ( is_array( $data ) || is_object( $data ) ) {
-				self::walk_value( $data, $known, $ids );
+				self::walk_value( $data, $ids );
 			}
 		}
 
@@ -48,24 +48,24 @@ class Meta_Parser {
 	}
 
 	/**
-	 * Recursively walk a decoded value looking for integers that are known attachment IDs.
+	 * Recursively walk a decoded value collecting positive-integer candidates.
 	 */
-	private static function walk_value( $value, array $known, array &$ids ): void {
+	private static function walk_value( $value, array &$ids ): void {
 		if ( is_array( $value ) || is_object( $value ) ) {
 			foreach ( (array) $value as $k => $v ) {
-				// If the key hints at an image field, check the value directly.
+				// If the key hints at an image field, take the scalar value directly.
 				if ( is_string( $k ) && self::is_image_key( $k ) ) {
 					$candidate = (int) $v;
-					if ( $candidate > 0 && isset( $known[ $candidate ] ) ) {
+					if ( $candidate > 0 ) {
 						$ids[] = $candidate;
 						continue;
 					}
 				}
-				self::walk_value( $v, $known, $ids );
+				self::walk_value( $v, $ids );
 			}
 		} elseif ( is_numeric( $value ) ) {
 			$candidate = (int) $value;
-			if ( $candidate > 0 && isset( $known[ $candidate ] ) ) {
+			if ( $candidate > 0 ) {
 				$ids[] = $candidate;
 			}
 		}

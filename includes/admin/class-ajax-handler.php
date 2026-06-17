@@ -86,6 +86,9 @@ class Ajax_Handler {
 		Index_Table::truncate();
 		Index_Table::truncate_summary();
 		delete_transient( Batch_Runner::CURSOR_KEY );
+		delete_transient( Batch_Runner::SUMMARY_CURSOR_KEY );
+		delete_transient( Batch_Runner::PHASE_KEY );
+		delete_transient( Batch_Runner::ATTACHMENT_IDS_KEY );
 		delete_option( Batch_Runner::INDEX_BUILT_KEY );
 		update_option( Batch_Runner::PROGRESS_KEY, array(
 			'status'   => 'idle',

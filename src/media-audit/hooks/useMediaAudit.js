@@ -43,11 +43,6 @@ export default function useMediaAudit( view, scanVersion ) {
 			params.set( 'reference_type', refTypeFilter.value );
 		}
 
-		const usageStatusFilter = view.filters?.find( ( f ) => f.field === 'usage_status' );
-		if ( usageStatusFilter?.value ) {
-			params.set( 'usage_filter', usageStatusFilter.value );
-		}
-
 		// Serve an identical prior view from cache. scanVersion is part of the
 		// key, so a scan/clear/delete (which bumps it) invalidates every entry.
 		const cacheKey = `${ scanVersion }|${ params.toString() }`;

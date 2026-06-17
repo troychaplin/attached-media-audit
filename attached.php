@@ -4,7 +4,7 @@
  * Description:       Audit and manage WordPress media files from one dashboard.
  * Requires at least: 6.6
  * Requires PHP:      8.0
- * Version:           2.1.0
+ * Version:           1.0.0
  * Author:            Troy Chaplin
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ATTACHED_MEDIA_AUDIT_VERSION', '2.1.0' );
+define( 'ATTACHED_MEDIA_AUDIT_VERSION', '1.0.0' );
 define( 'ATTACHED_MEDIA_AUDIT_FILE', __FILE__ );
 define( 'ATTACHED_MEDIA_AUDIT_DIR', plugin_dir_path( __FILE__ ) );
 
