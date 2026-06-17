@@ -6,6 +6,8 @@ export default function UsedInCell( { item, indexBuilt } ) {
 	const [ isOpen, setIsOpen ]       = useState( false );
 	const [ isLoading, setIsLoading ] = useState( false );
 	const [ locations, setLocations ] = useState( null );
+	const [ hasMore, setHasMore ]     = useState( false );
+	const [ limit, setLimit ]         = useState( 0 );
 	const anchorRef = useRef( null );
 	const cacheRef  = useRef( null );
 
@@ -16,9 +18,15 @@ export default function UsedInCell( { item, indexBuilt } ) {
 		return <span className="wp-media-audit-unused">{ __( 'Unused', 'attached-media-audit' ) }</span>;
 	}
 
+	const applyResult = ( result ) => {
+		setLocations( result.locations );
+		setHasMore( result.hasMore );
+		setLimit( result.limit );
+	};
+
 	const fetchLocations = () => {
 		if ( cacheRef.current ) {
-			setLocations( cacheRef.current );
+			applyResult( cacheRef.current );
 			return;
 		}
 		setIsLoading( true );
@@ -26,11 +34,16 @@ export default function UsedInCell( { item, indexBuilt } ) {
 		fetch( `${ ajaxUrl }?action=media_audit_locations&nonce=${ nonce }&attachment_id=${ item.id }` )
 			.then( ( r ) => r.json() )
 			.then( ( json ) => {
-				const data = json.data || [];
-				cacheRef.current = data;
-				setLocations( data );
+				const data = json.data || {};
+				const result = {
+					locations: data.locations || [],
+					hasMore: !! data.has_more,
+					limit: data.limit || 0,
+				};
+				cacheRef.current = result;
+				applyResult( result );
 			} )
-			.catch( () => setLocations( [] ) )
+			.catch( () => applyResult( { locations: [], hasMore: false, limit: 0 } ) )
 			.finally( () => setIsLoading( false ) );
 	};
 
@@ -75,6 +88,15 @@ export default function UsedInCell( { item, indexBuilt } ) {
 									</li>
 								) ) }
 							</ul>
+						) }
+						{ ! isLoading && hasMore && (
+							<p className="wp-media-audit-locations-more">
+								{ sprintf(
+									/* translators: %d: maximum number of posts shown */
+									__( 'Showing first %d. More references exist.', 'attached-media-audit' ),
+									limit
+								) }
+							</p>
 						) }
 					</div>
 				</Popover>

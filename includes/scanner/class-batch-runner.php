@@ -10,6 +10,7 @@ class Batch_Runner {
 	const CURSOR_KEY    = 'media_audit_cursor';
 	const PROGRESS_KEY  = 'media_audit_progress';
 	const INDEX_BUILT_KEY = 'media_audit_index_built';
+	const ATTACHMENT_IDS_KEY = 'media_audit_attachment_ids';
 
 	/** Post types scanned for media references. */
 	const SCAN_POST_TYPES = array( 'post', 'page', 'wp_template', 'wp_template_part' );
@@ -36,6 +37,7 @@ class Batch_Runner {
 		self::unschedule();
 		Index_Table::truncate();
 		delete_transient( self::CURSOR_KEY );
+		delete_transient( self::ATTACHMENT_IDS_KEY );
 		delete_option( self::INDEX_BUILT_KEY );
 
 		$total = self::get_total_post_count();
@@ -53,10 +55,15 @@ class Batch_Runner {
 		$after_id = (int) get_transient( self::CURSOR_KEY );
 		$total    = self::get_total_post_count();
 
-		// Cache file sizes for all attachments on the first batch of a fresh scan.
-		if ( 0 === $after_id ) {
-			self::cache_attachment_file_sizes();
-		}
+		// Cache file sizes a bounded number at a time on every tick. Each call
+		// only touches attachments still missing the cached meta, so once the
+		// library is fully cached this is a cheap no-op. Doing the whole library
+		// on batch 0 risked exceeding max_execution_time on large sites.
+		self::cache_attachment_file_sizes( self::BATCH_SIZE );
+
+		// Defer summary maintenance: per-post writes skip the incremental
+		// refresh, and the whole projection is rebuilt once when the scan ends.
+		Index_Table::$defer_summary = true;
 
 		$scanner = new Post_Scanner( self::get_all_attachment_ids() );
 		$ids     = self::get_batch( $after_id );
@@ -74,7 +81,9 @@ class Batch_Runner {
 		$done     = (int) ( $progress['progress'] ?? 0 ) + count( $ids );
 
 		if ( count( $ids ) < self::BATCH_SIZE ) {
-			// Final (short) batch — done.
+			// Final (short) batch — done. Rebuild the denormalized summary from
+			// the freshly populated index in one set-based pass.
+			Index_Table::rebuild_summary();
 			delete_transient( self::CURSOR_KEY );
 			update_option( self::INDEX_BUILT_KEY, true, false );
 			update_option( self::PROGRESS_KEY, array(
@@ -166,16 +175,23 @@ class Batch_Runner {
 		// phpcs:enable
 	}
 
-	private static function cache_attachment_file_sizes(): void {
+	/**
+	 * Cache file-size meta for attachments still missing it.
+	 *
+	 * @param int $limit Maximum attachments to process this call (0 = no limit).
+	 */
+	private static function cache_attachment_file_sizes( int $limit = 0 ): void {
 		global $wpdb;
+		$limit_sql = $limit > 0 ? $wpdb->prepare( ' LIMIT %d', $limit ) : '';
 		// Only process attachments that don't already have the cached meta.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$ids = $wpdb->get_col(
 			"SELECT p.ID FROM {$wpdb->posts} p
 			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_Attached_Media_Audit_filesize'
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
-			AND pm.meta_id IS NULL"
+			AND pm.meta_id IS NULL{$limit_sql}"
 		);
+		// phpcs:enable
 
 		foreach ( $ids as $id ) {
 			$id        = (int) $id;
@@ -196,13 +212,36 @@ class Batch_Runner {
 		}
 	}
 
+	/**
+	 * Return all attachment IDs on the site, cached for the scan's duration.
+	 *
+	 * Previously re-queried (and array_flipped) on every cron tick and every
+	 * post save. The cache is invalidated when an attachment is added or
+	 * deleted (see Plugin::init), so a newly uploaded attachment is still
+	 * picked up as a valid reference target.
+	 *
+	 * @return int[]
+	 */
 	private static function get_all_attachment_ids(): array {
+		$cached = get_transient( self::ATTACHMENT_IDS_KEY );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$ids = $wpdb->get_col(
 			"SELECT ID FROM {$wpdb->posts}
 			WHERE post_type = 'attachment' AND post_status = 'inherit'"
 		);
-		return array_map( 'intval', $ids );
+		$ids = array_map( 'intval', $ids );
+
+		set_transient( self::ATTACHMENT_IDS_KEY, $ids, HOUR_IN_SECONDS );
+		return $ids;
+	}
+
+	/** Drop the cached attachment-ID set (on attachment add/delete). */
+	public static function flush_attachment_ids(): void {
+		delete_transient( self::ATTACHMENT_IDS_KEY );
 	}
 }

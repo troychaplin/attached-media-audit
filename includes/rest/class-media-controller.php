@@ -53,6 +53,16 @@ class Media_Controller extends WP_REST_Controller {
 			usage_filter: $usage_filter,
 		);
 
+		// Prime the post + meta caches for the whole page in two batched queries
+		// so the per-row lookups in prepare_item() (image src, attachment URL,
+		// title, edit link) don't each trigger a cold DB read — the N+1 that a
+		// raw $wpdb result set otherwise incurs vs. WP_Query.
+		$ids = array_map( static fn( $row ) => (int) $row->ID, $result['items'] );
+		if ( $ids ) {
+			_prime_post_caches( $ids, false, true );
+			update_meta_cache( 'post', $ids );
+		}
+
 		$items = array_map( array( $this, 'prepare_item' ), $result['items'] );
 
 		return new WP_REST_Response( array(
@@ -79,9 +89,10 @@ class Media_Controller extends WP_REST_Controller {
 		$thumb_src     = wp_get_attachment_image_src( $id, array( 60, 60 ) );
 		$thumbnail_url = $thumb_src ? $thumb_src[0] : '';
 
-		// Check cached file size first to avoid reading the filesystem on every request.
-		$cached    = get_post_meta( $id, '_Attached_Media_Audit_filesize', true );
-		$file_size = $cached ? (int) $cached : 0;
+		// File size and alt text are already selected by the items query
+		// (joined from postmeta), so no per-row get_post_meta() is needed here.
+		$cached    = isset( $row->file_size ) ? (int) $row->file_size : 0;
+		$file_size = $cached;
 		if ( ! $file_size ) {
 			$meta = wp_get_attachment_metadata( $id );
 			if ( is_array( $meta ) && ! empty( $meta['filesize'] ) ) {
@@ -98,7 +109,7 @@ class Media_Controller extends WP_REST_Controller {
 			update_post_meta( $id, '_Attached_Media_Audit_filesize', $file_size );
 		}
 
-		$alt_text = get_post_meta( $id, '_wp_attachment_image_alt', true ) ?: '';
+		$alt_text = $row->alt_text ?? '';
 
 		return array(
 			'id'                  => $id,

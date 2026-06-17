@@ -5,14 +5,20 @@ export default function useMediaAudit( view, scanVersion ) {
 	const [ totalItems, setTotalItems ] = useState( 0 );
 	const [ isLoading, setIsLoading ]   = useState( true );
 	const abortRef = useRef( null );
+	const cacheRef = useRef( new Map() );
+	const cacheVersionRef = useRef( scanVersion );
 
 	useEffect( () => {
 		if ( abortRef.current ) {
 			abortRef.current.abort();
 		}
-		abortRef.current = new AbortController();
 
-		setIsLoading( true );
+		// A scan/clear/delete bumps scanVersion and makes the index stale, so
+		// drop the whole client cache rather than letting old entries linger.
+		if ( cacheVersionRef.current !== scanVersion ) {
+			cacheRef.current.clear();
+			cacheVersionRef.current = scanVersion;
+		}
 
 		const params = new URLSearchParams();
 		params.set( 'page', view.page );
@@ -42,14 +48,31 @@ export default function useMediaAudit( view, scanVersion ) {
 			params.set( 'usage_filter', usageStatusFilter.value );
 		}
 
+		// Serve an identical prior view from cache. scanVersion is part of the
+		// key, so a scan/clear/delete (which bumps it) invalidates every entry.
+		const cacheKey = `${ scanVersion }|${ params.toString() }`;
+		const cached = cacheRef.current.get( cacheKey );
+		if ( cached ) {
+			setItems( cached.items );
+			setTotalItems( cached.total );
+			setIsLoading( false );
+			return;
+		}
+
+		abortRef.current = new AbortController();
+		setIsLoading( true );
+
 		fetch( `${ window.wpMediaAudit.restUrl }?${ params.toString() }`, {
 			headers: { 'X-WP-Nonce': window.wpMediaAudit.restNonce },
 			signal: abortRef.current.signal,
 		} )
 			.then( ( r ) => r.json() )
 			.then( ( data ) => {
-				setItems( data.items || [] );
-				setTotalItems( data.total || 0 );
+				const items = data.items || [];
+				const total = data.total || 0;
+				cacheRef.current.set( cacheKey, { items, total } );
+				setItems( items );
+				setTotalItems( total );
 			} )
 			.catch( ( err ) => {
 				if ( err.name !== 'AbortError' ) {
