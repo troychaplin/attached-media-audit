@@ -1,11 +1,11 @@
 <?php
-namespace Attached_Media_Audit;
+namespace Smart_Media_Audit;
 
-use Attached_Media_Audit\Admin\Admin_Menu;
-use Attached_Media_Audit\Admin\Ajax_Handler;
-use Attached_Media_Audit\Rest\Media_Controller;
-use Attached_Media_Audit\Scanner\Batch_Runner;
-use Attached_Media_Audit\DB\Index_Table;
+use Smart_Media_Audit\Admin\Admin_Menu;
+use Smart_Media_Audit\Admin\Ajax_Handler;
+use Smart_Media_Audit\Rest\Media_Controller;
+use Smart_Media_Audit\Scanner\Batch_Runner;
+use Smart_Media_Audit\DB\Index_Table;
 
 class Plugin {
 
@@ -19,8 +19,8 @@ class Plugin {
 	}
 
 	private function maybe_upgrade_db(): void {
-		$installed = get_option( 'Attached_Media_Audit_db_version', '0' );
-		if ( version_compare( $installed, ATTACHED_MEDIA_AUDIT_VERSION, '<' ) ) {
+		$installed = get_option( 'smart_media_audit_db_version', '0' );
+		if ( version_compare( $installed, SMART_MEDIA_AUDIT_VERSION, '<' ) ) {
 			$is_upgrade = version_compare( $installed, '2.1.0', '<' ) && '0' !== $installed;
 			Index_Table::create();
 			// 2.1.0 introduced the summary projection. On an existing install
@@ -30,7 +30,7 @@ class Plugin {
 			if ( $is_upgrade && Index_Table::has_index_rows() ) {
 				Batch_Runner::schedule_summary_rebuild();
 			}
-			update_option( 'Attached_Media_Audit_db_version', ATTACHED_MEDIA_AUDIT_VERSION );
+			update_option( 'smart_media_audit_db_version', SMART_MEDIA_AUDIT_VERSION );
 		}
 	}
 

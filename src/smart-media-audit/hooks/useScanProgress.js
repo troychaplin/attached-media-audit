@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from '@wordpress/element';
 
 export default function useScanProgress( { onComplete } = {} ) {
 	const [ state, setState ] = useState(
-		() => window.wpMediaAudit?.initialProgress || { status: 'idle', progress: 0, total: 0 }
+		() => window.wpSmartMediaAudit?.initialProgress || { status: 'idle', progress: 0, total: 0 }
 	);
 
 	const prevStatusRef = useRef( state.status );
@@ -11,8 +11,8 @@ export default function useScanProgress( { onComplete } = {} ) {
 	onCompleteRef.current = onComplete;
 
 	const poll = useCallback( () => {
-		const { ajaxUrl, nonce } = window.wpMediaAudit;
-		fetch( `${ ajaxUrl }?action=media_audit_progress&nonce=${ nonce }` )
+		const { ajaxUrl, nonce } = window.wpSmartMediaAudit;
+		fetch( `${ ajaxUrl }?action=smart_media_audit_progress&nonce=${ nonce }` )
 			.then( ( r ) => r.json() )
 			.then( ( json ) => {
 				if ( ! json.success ) return;
@@ -41,9 +41,9 @@ export default function useScanProgress( { onComplete } = {} ) {
 	}, [ state.status, poll ] );
 
 	const startScan = useCallback( () => {
-		const { ajaxUrl, nonce } = window.wpMediaAudit;
+		const { ajaxUrl, nonce } = window.wpSmartMediaAudit;
 		const body = new FormData();
-		body.append( 'action', 'media_audit_scan' );
+		body.append( 'action', 'smart_media_audit_scan' );
 		body.append( 'nonce', nonce );
 
 		fetch( ajaxUrl, { method: 'POST', body } )

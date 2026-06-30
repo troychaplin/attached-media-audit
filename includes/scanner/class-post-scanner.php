@@ -1,7 +1,7 @@
 <?php
-namespace Attached_Media_Audit\Scanner;
+namespace Smart_Media_Audit\Scanner;
 
-use Attached_Media_Audit\DB\Index_Table;
+use Smart_Media_Audit\DB\Index_Table;
 
 class Post_Scanner {
 

@@ -13,9 +13,9 @@ export default function UsedInCell( { item, indexBuilt } ) {
 
 	if ( item.usage_count === 0 ) {
 		if ( ! indexBuilt ) {
-			return <span className="wp-media-audit-unscanned">{ __( 'Scan required', 'attached-media-audit' ) }</span>;
+			return <span className="wp-smart-media-audit-unscanned">{ __( 'Scan required', 'smart-media-audit' ) }</span>;
 		}
-		return <span className="wp-media-audit-unused">{ __( 'Unused', 'attached-media-audit' ) }</span>;
+		return <span className="wp-smart-media-audit-unused">{ __( 'Unused', 'smart-media-audit' ) }</span>;
 	}
 
 	const applyResult = ( result ) => {
@@ -30,8 +30,8 @@ export default function UsedInCell( { item, indexBuilt } ) {
 			return;
 		}
 		setIsLoading( true );
-		const { ajaxUrl, nonce } = window.wpMediaAudit;
-		fetch( `${ ajaxUrl }?action=media_audit_locations&nonce=${ nonce }&attachment_id=${ item.id }` )
+		const { ajaxUrl, nonce } = window.wpSmartMediaAudit;
+		fetch( `${ ajaxUrl }?action=smart_media_audit_locations&nonce=${ nonce }&attachment_id=${ item.id }` )
 			.then( ( r ) => r.json() )
 			.then( ( json ) => {
 				const data = json.data || {};
@@ -56,15 +56,15 @@ export default function UsedInCell( { item, indexBuilt } ) {
 
 	const label =
 		item.usage_count === 1
-			? __( '1 post', 'attached-media-audit' )
+			? __( '1 post', 'smart-media-audit' )
 			: sprintf(
 					/* translators: %d: number of posts */
-					__( '%d posts', 'attached-media-audit' ),
+					__( '%d posts', 'smart-media-audit' ),
 					item.usage_count
 			  );
 
 	return (
-		<span ref={ anchorRef } className="wp-media-audit-used-in">
+		<span ref={ anchorRef } className="wp-smart-media-audit-used-in">
 			<Button variant="link" onClick={ handleToggle } aria-expanded={ isOpen }>
 				{ label }
 			</Button>
@@ -75,14 +75,14 @@ export default function UsedInCell( { item, indexBuilt } ) {
 					placement="bottom-start"
 					focusOnMount={ false }
 				>
-					<div className="wp-media-audit-popover">
+					<div className="wp-smart-media-audit-popover">
 						{ isLoading && <Spinner /> }
 						{ ! isLoading && locations && (
-							<ul className="wp-media-audit-locations-list">
+							<ul className="wp-smart-media-audit-locations-list">
 								{ locations.map( ( loc, i ) => (
 									<li key={ i }>
 										<a href={ loc.edit_url }>{ loc.post_title }</a>
-										<span className="wp-media-audit-ref-type">
+										<span className="wp-smart-media-audit-ref-type">
 											{ loc.reference_type.replace( '_', ' ' ) }
 										</span>
 									</li>
@@ -90,10 +90,10 @@ export default function UsedInCell( { item, indexBuilt } ) {
 							</ul>
 						) }
 						{ ! isLoading && hasMore && (
-							<p className="wp-media-audit-locations-more">
+							<p className="wp-smart-media-audit-locations-more">
 								{ sprintf(
 									/* translators: %d: maximum number of posts shown */
-									__( 'Showing first %d. More references exist.', 'attached-media-audit' ),
+									__( 'Showing first %d. More references exist.', 'smart-media-audit' ),
 									limit
 								) }
 							</p>

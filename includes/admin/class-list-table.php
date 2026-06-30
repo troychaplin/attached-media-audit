@@ -1,7 +1,7 @@
 <?php
-namespace Attached_Media_Audit\Admin;
+namespace Smart_Media_Audit\Admin;
 
-use Attached_Media_Audit\DB\Index_Table;
+use Smart_Media_Audit\DB\Index_Table;
 
 if ( ! class_exists( 'WP_List_Table' ) ) {
 	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
@@ -19,11 +19,11 @@ class List_Table extends \WP_List_Table {
 
 	public function get_columns(): array {
 		return array(
-			'thumbnail'  => __( 'Preview', 'attached-media-audit' ),
-			'post_title' => __( 'File Name', 'attached-media-audit' ),
-			'mime_type'  => __( 'Type', 'attached-media-audit' ),
-			'usage'      => __( 'Used In', 'attached-media-audit' ),
-			'post_date'  => __( 'Date', 'attached-media-audit' ),
+			'thumbnail'  => __( 'Preview', 'smart-media-audit' ),
+			'post_title' => __( 'File Name', 'smart-media-audit' ),
+			'mime_type'  => __( 'Type', 'smart-media-audit' ),
+			'usage'      => __( 'Used In', 'smart-media-audit' ),
+			'post_date'  => __( 'Date', 'smart-media-audit' ),
 		);
 	}
 
@@ -86,9 +86,9 @@ class List_Table extends \WP_List_Table {
 			esc_url( $edit ),
 			$name,
 			esc_url( $url ),
-			__( 'View', 'attached-media-audit' ),
+			__( 'View', 'smart-media-audit' ),
 			esc_url( $edit ),
-			__( 'Edit', 'attached-media-audit' )
+			__( 'Edit', 'smart-media-audit' )
 		);
 	}
 
@@ -100,14 +100,14 @@ class List_Table extends \WP_List_Table {
 	protected function column_usage( $item ): string {
 		$count = (int) $item->usage_count;
 		if ( 0 === $count ) {
-			return '<span class="media-audit-unused">' . __( 'Unused', 'attached-media-audit' ) . '</span>';
+			return '<span class="smart-media-audit-unused">' . __( 'Unused', 'smart-media-audit' ) . '</span>';
 		}
 
 		return sprintf(
-			'<button class="button-link media-audit-locations-toggle" data-id="%d" aria-expanded="false">%s</button>'
-			. '<span class="media-audit-locations-row" id="media-audit-loc-%d" hidden></span>',
+			'<button class="button-link smart-media-audit-locations-toggle" data-id="%d" aria-expanded="false">%s</button>'
+			. '<span class="smart-media-audit-locations-row" id="smart-media-audit-loc-%d" hidden></span>',
 			esc_attr( $item->ID ),
-			sprintf( _n( '%d post', '%d posts', $count, 'attached-media-audit' ), $count ),
+			sprintf( _n( '%d post', '%d posts', $count, 'smart-media-audit' ), $count ),
 			esc_attr( $item->ID )
 		);
 	}
@@ -118,7 +118,7 @@ class List_Table extends \WP_List_Table {
 
 	/** Render the "no items" message. */
 	public function no_items(): void {
-		esc_html_e( 'No media items found.', 'attached-media-audit' );
+		esc_html_e( 'No media items found.', 'smart-media-audit' );
 	}
 
 	/**
@@ -132,16 +132,16 @@ class List_Table extends \WP_List_Table {
 		// Preserve an active search when switching tabs (false omits it when empty).
 		$base = add_query_arg(
 			array(
-				'page' => 'attached-media-audit',
+				'page' => 'smart-media-audit',
 				's'    => '' !== $search ? $search : false,
 			),
 			admin_url( 'upload.php' )
 		);
 
 		$tabs = array(
-			'all'    => array( 'label' => __( 'All', 'attached-media-audit' ),    'count' => $counts['total'] ),
-			'used'   => array( 'label' => __( 'Used', 'attached-media-audit' ),   'count' => $counts['used'] ),
-			'unused' => array( 'label' => __( 'Unused', 'attached-media-audit' ), 'count' => $counts['unused'] ),
+			'all'    => array( 'label' => __( 'All', 'smart-media-audit' ),    'count' => $counts['total'] ),
+			'used'   => array( 'label' => __( 'Used', 'smart-media-audit' ),   'count' => $counts['used'] ),
+			'unused' => array( 'label' => __( 'Unused', 'smart-media-audit' ), 'count' => $counts['unused'] ),
 		);
 
 		$views = array();

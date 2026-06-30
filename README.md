@@ -22,7 +22,7 @@ A WordPress plugin that audits your media library — showing which files are us
 
 ## Installation
 
-1. Copy the `attached-media-audit` folder into `wp-content/plugins/`.
+1. Copy the `smart-media-audit` folder into `wp-content/plugins/`.
 2. Run `pnpm install && pnpm build` from the plugin root.
 3. Activate the plugin in **Plugins → Installed Plugins**.
 4. Navigate to **Media → Media Audit**.
@@ -61,14 +61,14 @@ The scanner runs as a WP-Cron job in batches of 50 posts. It indexes four refere
 | `block` | Gutenberg block attributes (`core/image`, `core/cover`, `core/gallery`, etc.) |
 | `classic` | `<img>` and `<a>` tags in classic editor HTML |
 | `featured_image` | `_thumbnail_id` post meta |
-| `postmeta` | Other meta keys returning attachment IDs (configurable via `media_audit_scanned_meta_keys` filter) |
+| `postmeta` | Other meta keys returning attachment IDs (configurable via `smart_media_audit_scanned_meta_keys` filter) |
 
 Alt text detection for block images reads the rendered `<img alt>` in `innerHTML` via `WP_HTML_Tag_Processor`, not the block's JSON attributes (which don't store alt for `core/image`).
 
 ### REST API
 
 ```
-GET /wp-json/attached-media-audit/v1/media
+GET /wp-json/smart-media-audit/v1/media
 ```
 
 Parameters: `page`, `per_page`, `search`, `orderby` (`title|date|usage|file_size`), `order` (`asc|desc`), `type_filter`, `ref_filter`, `usage_filter` (`used|unused`).
@@ -77,7 +77,7 @@ Returns server-paginated results with `X-WP-Total` and `X-WP-TotalPages` headers
 
 ### Database
 
-Table: `{prefix}media_audit_index`
+Table: `{prefix}smart_media_audit_index`
 
 | Column | Type | Description |
 |---|---|---|
@@ -88,11 +88,11 @@ Table: `{prefix}media_audit_index`
 | `missing_alt` | `tinyint(1)` | 1 when the image is used in content without alt text |
 | `last_scanned` | `datetime` | When this row was last written |
 
-File sizes are cached in post meta (`_Attached_Media_Audit_filesize`) on the first scan to support fast SQL `ORDER BY`.
+File sizes are cached in post meta (`_smart_media_audit_filesize`) on the first scan to support fast SQL `ORDER BY`.
 
 ### DB versioning
 
-The DB version is tracked in the `Attached_Media_Audit_db_version` option. Bumping `ATTACHED_MEDIA_AUDIT_VERSION` in `attached.php` triggers `dbDelta()` automatically on the next page load via `Plugin::maybe_upgrade_db()`.
+The DB version is tracked in the `smart_media_audit_db_version` option. Bumping `SMART_MEDIA_AUDIT_VERSION` in `smart-media-audit.php` triggers `dbDelta()` automatically on the next page load via `Plugin::maybe_upgrade_db()`.
 
 ## Development
 
@@ -102,8 +102,8 @@ pnpm build      # production build
 pnpm start      # watch mode
 ```
 
-**Entry:** `src/media-audit/index.js`  
-**Output:** `build/media-audit-admin.{js,css,asset.php}`  
+**Entry:** `src/smart-media-audit/index.js`  
+**Output:** `build/smart-media-audit-admin.{js,css,asset.php}`  
 **Webpack:** extends `@wordpress/scripts` defaults via `webpack.config.js`
 
 ### Key source files
@@ -118,12 +118,12 @@ includes/
   scanner/class-post-scanner.php    — Orchestrates parsers, writes to index
   scanner/class-batch-runner.php    — WP-Cron batching, progress tracking
   admin/class-ajax-handler.php      — AJAX actions (scan, progress, locations, clear)
-  admin/class-admin-menu.php        — Asset enqueue, wpMediaAudit JS global
+  admin/class-admin-menu.php        — Asset enqueue, wpSmartMediaAudit JS global
   class-plugin.php                  — Bootstrap, DB upgrade check, hooks
 
-src/media-audit/
+src/smart-media-audit/
   App.js                            — DataViews component, field definitions
-  hooks/useMediaAudit.js            — REST fetch with AbortController
+  hooks/useSmartMediaAudit.js            — REST fetch with AbortController
   hooks/useScanProgress.js          — AJAX polling, scan state machine
   components/ScanToolbar.js         — Scan Now + Clear Index + progress bar
   components/ThumbnailCell.js       — Image preview or dashicon fallback
@@ -134,10 +134,10 @@ src/media-audit/
 
 ## Hooks
 
-**`media_audit_scanned_meta_keys`** — Filter the list of post meta keys the scanner checks for attachment IDs.
+**`smart_media_audit_scanned_meta_keys`** — Filter the list of post meta keys the scanner checks for attachment IDs.
 
 ```php
-add_filter( 'media_audit_scanned_meta_keys', function( array $keys ): array {
+add_filter( 'smart_media_audit_scanned_meta_keys', function( array $keys ): array {
     $keys[] = 'my_custom_image_field';
     return $keys;
 } );

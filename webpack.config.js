@@ -4,6 +4,6 @@ const path = require( 'path' );
 module.exports = {
 	...defaultConfig,
 	entry: {
-		'media-audit-admin': path.resolve( __dirname, 'src/media-audit/index.js' ),
+		'smart-media-audit-admin': path.resolve( __dirname, 'src/smart-media-audit/index.js' ),
 	},
 };

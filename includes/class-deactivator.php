@@ -1,7 +1,7 @@
 <?php
-namespace Attached_Media_Audit;
+namespace Smart_Media_Audit;
 
-use Attached_Media_Audit\Scanner\Batch_Runner;
+use Smart_Media_Audit\Scanner\Batch_Runner;
 
 class Deactivator {
 

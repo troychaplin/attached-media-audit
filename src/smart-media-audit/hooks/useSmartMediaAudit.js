@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from '@wordpress/element';
 
-export default function useMediaAudit( view, scanVersion ) {
+export default function useSmartMediaAudit( view, scanVersion ) {
 	const [ items, setItems ]           = useState( [] );
 	const [ totalItems, setTotalItems ] = useState( 0 );
 	const [ isLoading, setIsLoading ]   = useState( true );
@@ -57,8 +57,8 @@ export default function useMediaAudit( view, scanVersion ) {
 		abortRef.current = new AbortController();
 		setIsLoading( true );
 
-		fetch( `${ window.wpMediaAudit.restUrl }?${ params.toString() }`, {
-			headers: { 'X-WP-Nonce': window.wpMediaAudit.restNonce },
+		fetch( `${ window.wpSmartMediaAudit.restUrl }?${ params.toString() }`, {
+			headers: { 'X-WP-Nonce': window.wpSmartMediaAudit.restNonce },
 			signal: abortRef.current.signal,
 		} )
 			.then( ( r ) => r.json() )

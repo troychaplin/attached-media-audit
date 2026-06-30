@@ -1,21 +1,21 @@
 <?php
-namespace Attached_Media_Audit\Scanner;
+namespace Smart_Media_Audit\Scanner;
 
-use Attached_Media_Audit\DB\Index_Table;
+use Smart_Media_Audit\DB\Index_Table;
 
 class Batch_Runner {
 
-	const CRON_HOOK     = 'media_audit_full_scan';
+	const CRON_HOOK     = 'smart_media_audit_full_scan';
 	const BATCH_SIZE    = 50;
 	/** Filesize backfill and summary rebuild touch one row each — safe to chunk larger. */
 	const FILESIZE_BATCH = 200;
 	const SUMMARY_BATCH  = 200;
-	const CURSOR_KEY    = 'media_audit_cursor';
-	const SUMMARY_CURSOR_KEY = 'media_audit_summary_cursor';
-	const PHASE_KEY     = 'media_audit_phase';
-	const PROGRESS_KEY  = 'media_audit_progress';
-	const INDEX_BUILT_KEY = 'media_audit_index_built';
-	const ATTACHMENT_IDS_KEY = 'media_audit_attachment_ids';
+	const CURSOR_KEY    = 'smart_media_audit_cursor';
+	const SUMMARY_CURSOR_KEY = 'smart_media_audit_summary_cursor';
+	const PHASE_KEY     = 'smart_media_audit_phase';
+	const PROGRESS_KEY  = 'smart_media_audit_progress';
+	const INDEX_BUILT_KEY = 'smart_media_audit_index_built';
+	const ATTACHMENT_IDS_KEY = 'smart_media_audit_attachment_ids';
 
 	/** Scan phases, run in order. Each is bounded per cron tick. */
 	const PHASE_POSTS     = 'posts';
@@ -282,7 +282,7 @@ class Batch_Runner {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var(
 			"SELECT COUNT(*) FROM {$wpdb->posts} p
-			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_Attached_Media_Audit_filesize'
+			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_smart_media_audit_filesize'
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
 			AND pm.meta_id IS NULL"
 		);
@@ -326,7 +326,7 @@ class Batch_Runner {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$ids = $wpdb->get_col(
 			"SELECT p.ID FROM {$wpdb->posts} p
-			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_Attached_Media_Audit_filesize'
+			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_smart_media_audit_filesize'
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
 			AND pm.meta_id IS NULL{$limit_sql}"
 		);
@@ -346,7 +346,7 @@ class Batch_Runner {
 				}
 			}
 			if ( $file_size > 0 ) {
-				update_post_meta( $id, '_Attached_Media_Audit_filesize', $file_size );
+				update_post_meta( $id, '_smart_media_audit_filesize', $file_size );
 			}
 		}
 	}

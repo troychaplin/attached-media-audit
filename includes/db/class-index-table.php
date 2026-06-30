@@ -1,12 +1,12 @@
 <?php
-namespace Attached_Media_Audit\DB;
+namespace Smart_Media_Audit\DB;
 
 class Index_Table {
 
-	const TABLE_NAME = 'media_audit_index';
+	const TABLE_NAME = 'smart_media_audit_index';
 
 	/** Denormalized one-row-per-attachment projection used by the read path. */
-	const SUMMARY_TABLE_NAME = 'media_audit_summary';
+	const SUMMARY_TABLE_NAME = 'smart_media_audit_summary';
 
 	/**
 	 * When true, writes skip incremental summary refresh. The batch scanner sets
@@ -16,7 +16,7 @@ class Index_Table {
 	public static bool $defer_summary = false;
 
 	/** Object-cache group for list-query results. */
-	const CACHE_GROUP = 'media_audit';
+	const CACHE_GROUP = 'smart_media_audit';
 
 	/**
 	 * Current cache-busting marker for the group.
@@ -247,7 +247,7 @@ class Index_Table {
 				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'classic'),
 				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'postmeta')
 			FROM {$posts_table} p
-			LEFT JOIN {$postmeta} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_Attached_Media_Audit_filesize'
+			LEFT JOIN {$postmeta} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_smart_media_audit_filesize'
 			LEFT JOIN {$postmeta} pm_alt ON pm_alt.post_id = p.ID AND pm_alt.meta_key = '_wp_attachment_image_alt'
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
 			{$scope_where}";

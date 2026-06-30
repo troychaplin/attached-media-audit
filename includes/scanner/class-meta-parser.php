@@ -1,5 +1,5 @@
 <?php
-namespace Attached_Media_Audit\Scanner;
+namespace Smart_Media_Audit\Scanner;
 
 class Meta_Parser {
 
@@ -13,7 +13,7 @@ class Meta_Parser {
 			array( 'key' => '_elementor_data',   'format' => 'json' ),
 			array( 'key' => '_fl_builder_data',  'format' => 'json' ),
 		);
-		return apply_filters( 'media_audit_scanned_meta_keys', $defaults );
+		return apply_filters( 'smart_media_audit_scanned_meta_keys', $defaults );
 	}
 
 	/**

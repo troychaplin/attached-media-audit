@@ -6,7 +6,7 @@ import ScanToolbar from './components/ScanToolbar';
 import ThumbnailCell from './components/ThumbnailCell';
 import TitleCell from './components/TitleCell';
 import UsedInCell from './components/UsedInCell';
-import useMediaAudit from './hooks/useMediaAudit';
+import useSmartMediaAudit from './hooks/useSmartMediaAudit';
 import useScanProgress from './hooks/useScanProgress';
 import './styles.scss';
 
@@ -30,9 +30,9 @@ function formatFileSize( bytes ) {
 export default function App() {
 	const [ view, setView ]               = useState( DEFAULT_VIEW );
 	const [ scanVersion, setScanVersion ] = useState( 0 );
-	const [ indexBuilt, setIndexBuilt ]   = useState( () => window.wpMediaAudit?.indexBuilt ?? false );
+	const [ indexBuilt, setIndexBuilt ]   = useState( () => window.wpSmartMediaAudit?.indexBuilt ?? false );
 
-	const { items, totalItems, isLoading } = useMediaAudit( view, scanVersion );
+	const { items, totalItems, isLoading } = useSmartMediaAudit( view, scanVersion );
 	const { status, progress, total, startScan, resetToIdle } = useScanProgress( {
 		onComplete: () => { setIndexBuilt( true ); setScanVersion( ( v ) => v + 1 ); },
 	} );
@@ -40,12 +40,12 @@ export default function App() {
 	const handleClear = useCallback( async () => {
 		// eslint-disable-next-line no-alert
 		if ( ! window.confirm(
-			__( 'Clear the media index? All scan data will be removed. Run a new scan to rebuild it.', 'attached-media-audit' )
+			__( 'Clear the media index? All scan data will be removed. Run a new scan to rebuild it.', 'smart-media-audit' )
 		) ) return;
 
-		const { ajaxUrl, nonce } = window.wpMediaAudit;
+		const { ajaxUrl, nonce } = window.wpSmartMediaAudit;
 		const body = new FormData();
-		body.append( 'action', 'media_audit_clear_index' );
+		body.append( 'action', 'smart_media_audit_clear_index' );
 		body.append( 'nonce', nonce );
 
 		await fetch( ajaxUrl, { method: 'POST', body } ).catch( () => {} );
@@ -61,12 +61,12 @@ export default function App() {
 			count === 1
 				? sprintf(
 						/* translators: %s: file name */
-						__( 'Delete "%s"? This cannot be undone.', 'attached-media-audit' ),
+						__( 'Delete "%s"? This cannot be undone.', 'smart-media-audit' ),
 						selectedItems[ 0 ].title
 				  )
 				: sprintf(
 						/* translators: %d: number of files */
-						__( 'Delete %d files? This cannot be undone.', 'attached-media-audit' ),
+						__( 'Delete %d files? This cannot be undone.', 'smart-media-audit' ),
 						count
 				  );
 
@@ -90,7 +90,7 @@ export default function App() {
 		if ( ! window.confirm(
 			sprintf(
 				/* translators: %s: file name */
-				__( 'Delete "%s"? This cannot be undone.', 'attached-media-audit' ),
+				__( 'Delete "%s"? This cannot be undone.', 'smart-media-audit' ),
 				item.title
 			)
 		) ) return;
@@ -107,7 +107,7 @@ export default function App() {
 		() => [
 			{
 				id: 'thumbnail',
-				label: __( 'Preview', 'attached-media-audit' ),
+				label: __( 'Preview', 'smart-media-audit' ),
 				enableSorting: false,
 				enableHiding: false,
 				enableGlobalSearch: false,
@@ -115,7 +115,7 @@ export default function App() {
 			},
 			{
 				id: 'title',
-				label: __( 'File Name', 'attached-media-audit' ),
+				label: __( 'File Name', 'smart-media-audit' ),
 				enableSorting: true,
 				enableHiding: false,
 				enableGlobalSearch: true,
@@ -125,31 +125,31 @@ export default function App() {
 			},
 			{
 				id: 'media_type',
-				label: __( 'Type', 'attached-media-audit' ),
+				label: __( 'Type', 'smart-media-audit' ),
 				enableSorting: false,
 				elements: [
-					{ value: 'Image', label: __( 'Image', 'attached-media-audit' ) },
-					{ value: 'Video', label: __( 'Video', 'attached-media-audit' ) },
-					{ value: 'Audio', label: __( 'Audio', 'attached-media-audit' ) },
-					{ value: 'Document', label: __( 'Document', 'attached-media-audit' ) },
+					{ value: 'Image', label: __( 'Image', 'smart-media-audit' ) },
+					{ value: 'Video', label: __( 'Video', 'smart-media-audit' ) },
+					{ value: 'Audio', label: __( 'Audio', 'smart-media-audit' ) },
+					{ value: 'Document', label: __( 'Document', 'smart-media-audit' ) },
 				],
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
 				id: 'reference_type',
-				label: __( 'Location', 'attached-media-audit' ),
+				label: __( 'Location', 'smart-media-audit' ),
 				enableSorting: false,
 				elements: [
-					{ value: 'block', label: __( 'Block', 'attached-media-audit' ) },
-					{ value: 'featured_image', label: __( 'Featured Image', 'attached-media-audit' ) },
-					{ value: 'classic', label: __( 'Classic Editor', 'attached-media-audit' ) },
-					{ value: 'postmeta', label: __( 'Post Meta', 'attached-media-audit' ) },
+					{ value: 'block', label: __( 'Block', 'smart-media-audit' ) },
+					{ value: 'featured_image', label: __( 'Featured Image', 'smart-media-audit' ) },
+					{ value: 'classic', label: __( 'Classic Editor', 'smart-media-audit' ) },
+					{ value: 'postmeta', label: __( 'Post Meta', 'smart-media-audit' ) },
 				],
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
 				id: 'usage',
-				label: __( 'Used In', 'attached-media-audit' ),
+				label: __( 'Used In', 'smart-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
 				getValue: ( { item } ) => item.usage_count,
@@ -157,7 +157,7 @@ export default function App() {
 			},
 			{
 				id: 'file_size',
-				label: __( 'Size', 'attached-media-audit' ),
+				label: __( 'Size', 'smart-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
 				getValue: ( { item } ) => item.file_size,
@@ -165,21 +165,21 @@ export default function App() {
 			},
 			{
 				id: 'alt_text',
-				label: __( 'Alt Text', 'attached-media-audit' ),
+				label: __( 'Alt Text', 'smart-media-audit' ),
 				enableSorting: false,
 				enableGlobalSearch: false,
 				render: ( { item } ) => {
 					if ( item.media_type !== 'Image' || ! item.content_alt_missing ) return null;
 					return (
-						<span className="wp-media-audit-no-alt">
-							{ __( 'No alt', 'attached-media-audit' ) }
+						<span className="wp-smart-media-audit-no-alt">
+							{ __( 'No alt', 'smart-media-audit' ) }
 						</span>
 					);
 				},
 			},
 			{
 				id: 'date',
-				label: __( 'Date', 'attached-media-audit' ),
+				label: __( 'Date', 'smart-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
 				getValue: ( { item } ) => item.date,
@@ -198,7 +198,7 @@ export default function App() {
 		() => [
 			{
 				id: 'delete',
-				label: __( 'Delete', 'attached-media-audit' ),
+				label: __( 'Delete', 'smart-media-audit' ),
 				isDestructive: true,
 				isEligible: ( item ) => item.usage_count === 0,
 				callback: handleDeleteItems,
@@ -213,7 +213,7 @@ export default function App() {
 	};
 
 	return (
-		<div className="wp-media-audit-app">
+		<div className="wp-smart-media-audit-app">
 			<ScanToolbar
 				status={ status }
 				progress={ progress }
