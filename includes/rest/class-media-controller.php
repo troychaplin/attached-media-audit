@@ -41,6 +41,7 @@ class Media_Controller extends WP_REST_Controller {
 		$media_type     = sanitize_text_field( $request->get_param( 'media_type' ) ?: '' );
 		$reference_type = sanitize_key( $request->get_param( 'reference_type' ) ?: '' );
 		$usage_filter   = sanitize_key( $request->get_param( 'usage_filter' ) ?: '' );
+		$missing_alt    = (bool) $request->get_param( 'missing_alt' );
 
 		$result = Index_Table::get_attachments_rest(
 			search: $search,
@@ -51,6 +52,7 @@ class Media_Controller extends WP_REST_Controller {
 			media_type: $media_type,
 			reference_type: $reference_type,
 			usage_filter: $usage_filter,
+			missing_alt: $missing_alt,
 		);
 
 		// Prime the post + meta caches for the whole page in two batched queries
@@ -149,6 +151,7 @@ class Media_Controller extends WP_REST_Controller {
 			'media_type'     => array( 'type' => 'string', 'default' => '' ),
 			'reference_type' => array( 'type' => 'string', 'default' => '' ),
 			'usage_filter'   => array( 'type' => 'string', 'default' => '' ),
+			'missing_alt'    => array( 'type' => 'boolean', 'default' => false ),
 		);
 	}
 }

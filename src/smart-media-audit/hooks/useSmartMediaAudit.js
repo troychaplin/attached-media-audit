@@ -43,6 +43,16 @@ export default function useSmartMediaAudit( view, scanVersion ) {
 			params.set( 'reference_type', refTypeFilter.value );
 		}
 
+		const usageFilter = view.filters?.find( ( f ) => f.field === 'usage' );
+		if ( usageFilter?.value ) {
+			params.set( 'usage_filter', usageFilter.value );
+		}
+
+		const altFilter = view.filters?.find( ( f ) => f.field === 'missing_alt' );
+		if ( altFilter?.value === 'missing' ) {
+			params.set( 'missing_alt', '1' );
+		}
+
 		// Serve an identical prior view from cache. scanVersion is part of the
 		// key, so a scan/clear/delete (which bumps it) invalidates every entry.
 		const cacheKey = `${ scanVersion }|${ params.toString() }`;

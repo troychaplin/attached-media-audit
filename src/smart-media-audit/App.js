@@ -124,6 +124,18 @@ export default function App() {
 				),
 			},
 			{
+				id: 'reference_type',
+				label: __( 'Location', 'smart-media-audit' ),
+				enableSorting: false,
+				elements: [
+					{ value: 'block', label: __( 'Block', 'smart-media-audit' ) },
+					{ value: 'featured_image', label: __( 'Featured Image', 'smart-media-audit' ) },
+					{ value: 'classic', label: __( 'Content', 'smart-media-audit' ) },
+					{ value: 'postmeta', label: __( 'Post Meta', 'smart-media-audit' ) },
+				],
+				filterBy: { isPrimary: true, operators: [ 'is' ] },
+			},
+			{
 				id: 'media_type',
 				label: __( 'Type', 'smart-media-audit' ),
 				enableSorting: false,
@@ -136,22 +148,15 @@ export default function App() {
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
-				id: 'reference_type',
-				label: __( 'Location', 'smart-media-audit' ),
-				enableSorting: false,
-				elements: [
-					{ value: 'block', label: __( 'Block', 'smart-media-audit' ) },
-					{ value: 'featured_image', label: __( 'Featured Image', 'smart-media-audit' ) },
-					{ value: 'classic', label: __( 'Classic Editor', 'smart-media-audit' ) },
-					{ value: 'postmeta', label: __( 'Post Meta', 'smart-media-audit' ) },
-				],
-				filterBy: { isPrimary: true, operators: [ 'is' ] },
-			},
-			{
 				id: 'usage',
 				label: __( 'Used In', 'smart-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
+				elements: [
+					{ value: 'used',   label: __( 'Used', 'smart-media-audit' ) },
+					{ value: 'unused', label: __( 'Unused', 'smart-media-audit' ) },
+				],
+				filterBy: { isPrimary: true, operators: [ 'is' ] },
 				getValue: ( { item } ) => item.usage_count,
 				render: ( { item } ) => <UsedInCell item={ item } indexBuilt={ indexBuilt } />,
 			},
@@ -167,6 +172,7 @@ export default function App() {
 				id: 'alt_text',
 				label: __( 'Alt Text', 'smart-media-audit' ),
 				enableSorting: false,
+				enableHiding: false,
 				enableGlobalSearch: false,
 				render: ( { item } ) => {
 					if ( item.media_type !== 'Image' || ! item.content_alt_missing ) return null;
@@ -176,6 +182,20 @@ export default function App() {
 						</span>
 					);
 				},
+			},
+			{
+				// Filter-only field: no column, no render. Label starts with "W" so
+				// DataViews' alphabetical sort puts it after "Used In" (U), giving
+				// the chip order: Location → Type → Used In → Without Alt.
+				id: 'missing_alt',
+				label: __( 'Without Alt', 'smart-media-audit' ),
+				enableSorting: false,
+				enableHiding: false,
+				enableGlobalSearch: false,
+				elements: [
+					{ value: 'missing', label: __( 'Missing', 'smart-media-audit' ) },
+				],
+				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
 				id: 'date',

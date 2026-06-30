@@ -535,7 +535,8 @@ class Index_Table {
 		string $order = 'DESC',
 		string $media_type = '',
 		string $reference_type = '',
-		string $usage_filter = ''
+		string $usage_filter = '',
+		bool   $missing_alt = false
 	): array {
 		global $wpdb;
 		$offset = ( $page - 1 ) * $per_page;
@@ -585,6 +586,10 @@ class Index_Table {
 			$where_parts[] = 's.usage_count = 0';
 		} elseif ( 'used' === $usage_filter ) {
 			$where_parts[] = 's.usage_count > 0';
+		}
+
+		if ( $missing_alt ) {
+			$where_parts[] = 's.missing_alt = 1';
 		}
 
 		$where_sql = $where_parts ? 'WHERE ' . implode( ' AND ', $where_parts ) : '';

@@ -30,13 +30,17 @@ class Admin_Menu {
 		if ( ! file_exists( $asset_file ) ) {
 			return;
 		}
-		$asset = require $asset_file;
+		$asset   = require $asset_file;
+		$js_file = SMART_MEDIA_AUDIT_DIR . 'build/smart-media-audit-admin.js';
+		$version = defined( 'WP_DEBUG' ) && WP_DEBUG
+			? filemtime( $js_file )
+			: $asset['version'];
 
 		wp_enqueue_script(
 			'smart-media-audit-admin',
 			plugin_dir_url( SMART_MEDIA_AUDIT_FILE ) . 'build/smart-media-audit-admin.js',
 			$asset['dependencies'],
-			$asset['version'],
+			$version,
 			true
 		);
 
@@ -44,7 +48,7 @@ class Admin_Menu {
 			'smart-media-audit-admin',
 			plugin_dir_url( SMART_MEDIA_AUDIT_FILE ) . 'build/smart-media-audit-admin.css',
 			array( 'wp-components' ),
-			$asset['version']
+			$version
 		);
 
 		wp_add_inline_script(
