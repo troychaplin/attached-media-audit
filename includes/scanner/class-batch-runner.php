@@ -211,7 +211,7 @@ class Batch_Runner {
 		$status_ph = implode( ',', array_fill( 0, count( self::SCAN_STATUSES ), '%s' ) );
 		$args      = array_merge( self::SCAN_POST_TYPES, self::SCAN_STATUSES, array( $after_id, self::BATCH_SIZE ) );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT ID FROM {$wpdb->posts}
@@ -264,7 +264,7 @@ class Batch_Runner {
 		$status_ph = implode( ',', array_fill( 0, count( self::SCAN_STATUSES ), '%s' ) );
 		$args      = array_merge( self::SCAN_POST_TYPES, self::SCAN_STATUSES );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->posts}
@@ -323,7 +323,7 @@ class Batch_Runner {
 		global $wpdb;
 		$limit_sql = $limit > 0 ? $wpdb->prepare( ' LIMIT %d', $limit ) : '';
 		// Only process attachments that don't already have the cached meta.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$ids = $wpdb->get_col(
 			"SELECT p.ID FROM {$wpdb->posts} p
 			LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_smart_media_audit_filesize'

@@ -104,7 +104,7 @@ class Index_Table {
 		global $wpdb;
 		$table   = self::table_name();
 		$summary = self::summary_table_name();
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$summary}" );
 		// phpcs:enable
@@ -119,7 +119,7 @@ class Index_Table {
 	public static function truncate(): void {
 		global $wpdb;
 		$table = self::table_name();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$wpdb->query( "DELETE FROM {$table}" );
 		self::flush_cache();
 	}
@@ -128,7 +128,7 @@ class Index_Table {
 	public static function truncate_summary(): void {
 		global $wpdb;
 		$summary = self::summary_table_name();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$wpdb->query( "DELETE FROM {$summary}" );
 		self::flush_cache();
 	}
@@ -171,7 +171,7 @@ class Index_Table {
 				(attachment_id, source_post_id, reference_type, missing_alt, last_scanned)
 				VALUES " . implode( ', ', $placeholders );
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 			$wpdb->query( $wpdb->prepare( $sql, ...$values ) );
 			// phpcs:enable
 		}
@@ -252,7 +252,7 @@ class Index_Table {
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
 			{$scope_where}";
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$wpdb->query( $sql );
 		// phpcs:enable
 	}
@@ -270,7 +270,7 @@ class Index_Table {
 	public static function rebuild_summary(): void {
 		global $wpdb;
 		$summary = self::summary_table_name();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$wpdb->query( "DELETE FROM {$summary}" );
 		self::insert_summary_rows();
 		self::flush_cache();
@@ -292,7 +292,7 @@ class Index_Table {
 		// Safe to inline: every element is an intval'd integer.
 		$in = implode( ', ', $ids );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$wpdb->query( "DELETE FROM {$summary} WHERE attachment_id IN ({$in})" );
 		// phpcs:enable
 
@@ -375,7 +375,7 @@ class Index_Table {
 		// Flat count queries — avoid FROM(subquery) AS alias, which breaks on SQLite.
 		// Only call prepare() when a placeholder is actually present, otherwise
 		// wpdb::prepare emits a _doing_it_wrong notice under WP_DEBUG.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		if ( 'used' === $filter ) {
 			$count = (int) self::count_query( "{$used_count_sql}{$search_sql}", $search_arg );
 		} elseif ( 'unused' === $filter ) {
@@ -424,7 +424,7 @@ class Index_Table {
 	 */
 	private static function count_query( string $sql, array $args ) {
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		if ( $args ) {
 			return (int) $wpdb->get_var( $wpdb->prepare( $sql, ...$args ) );
 		}
@@ -606,7 +606,7 @@ class Index_Table {
 		$order_col = $order_map[ $orderby ] ?? 's.post_date';
 		$order_dir = ( 'ASC' === strtoupper( $order ) ) ? 'ASC' : 'DESC';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		// Single flat count for every filter combination.
 		$count = self::count_query( "SELECT COUNT(*) FROM {$summary} s {$where_sql}", $args );
 

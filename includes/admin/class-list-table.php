@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 namespace Smart_Media_Audit\Admin;
 
 use Smart_Media_Audit\DB\Index_Table;
@@ -38,12 +40,14 @@ class List_Table extends \WP_List_Table {
 	public function prepare_items(): void {
 		$per_page = 20;
 		$paged    = $this->get_pagenum();
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only list table filter/sort parameters; nonces are not applicable to navigation links.
 		$filter   = sanitize_key( $_GET['filter'] ?? 'all' );
-		$search   = sanitize_text_field( $_GET['s'] ?? '' );
+		$search   = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );
 
-		// Whitelist sort params; get_attachments() maps them to safe columns.
+		// Allowlist sort params; get_attachments() maps them to safe columns.
 		$orderby = sanitize_key( $_GET['orderby'] ?? 'post_date' );
 		$order   = strtoupper( sanitize_key( $_GET['order'] ?? 'DESC' ) ) === 'ASC' ? 'ASC' : 'DESC';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$result = Index_Table::get_attachments( $filter, $search, $per_page, $paged, $orderby, $order );
 
@@ -107,6 +111,7 @@ class List_Table extends \WP_List_Table {
 			'<button class="button-link smart-media-audit-locations-toggle" data-id="%d" aria-expanded="false">%s</button>'
 			. '<span class="smart-media-audit-locations-row" id="smart-media-audit-loc-%d" hidden></span>',
 			esc_attr( $item->ID ),
+			// translators: %d is the number of posts using this media item.
 			sprintf( _n( '%d post', '%d posts', $count, 'smart-media-audit' ), $count ),
 			esc_attr( $item->ID )
 		);
@@ -125,9 +130,11 @@ class List_Table extends \WP_List_Table {
 	 * Output filter-tab nav links (All / Used / Unused).
 	 */
 	public function get_views(): array {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only list table filter parameters; nonces are not applicable to navigation links.
 		$current = sanitize_key( $_GET['filter'] ?? 'all' );
 		$counts  = Index_Table::get_counts();
-		$search  = sanitize_text_field( $_GET['s'] ?? '' );
+		$search  = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		// Preserve an active search when switching tabs (false omits it when empty).
 		$base = add_query_arg(

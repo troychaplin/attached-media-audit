@@ -39,7 +39,7 @@ class Ajax_Handler {
 			wp_send_json_error( 'Unauthorized', 403 );
 		}
 
-		$attachment_id = (int) ( $_GET['attachment_id'] ?? 0 );
+		$attachment_id = isset( $_GET['attachment_id'] ) ? absint( wp_unslash( $_GET['attachment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- absint() is sanitization; already behind check_ajax_referer().
 		if ( ! $attachment_id ) {
 			wp_send_json_error( 'Missing attachment_id' );
 		}
