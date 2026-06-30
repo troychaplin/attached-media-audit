@@ -38,6 +38,21 @@ class Classic_Parser {
 			}
 		}
 
+		// Find <a href> links pointing to the uploads directory.
+		$upload_dir  = wp_get_upload_dir();
+		$uploads_url = trailingslashit( $upload_dir['baseurl'] );
+
+		if ( preg_match_all( '/<a\s[^>]*\bhref=["\']([^"\']+)["\'][^>]*>/i', $post_content, $a_matches ) ) {
+			foreach ( $a_matches[1] as $url ) {
+				if ( strpos( $url, $uploads_url ) === 0 ) {
+					$id = attachment_url_to_postid( $url );
+					if ( $id > 0 ) {
+						$rows[] = array( 'id' => $id, 'missing_alt' => false );
+					}
+				}
+			}
+		}
+
 		// Deduplicate by ID, keeping missing_alt=true if any occurrence lacks alt.
 		$deduped = array();
 		foreach ( $rows as $row ) {
