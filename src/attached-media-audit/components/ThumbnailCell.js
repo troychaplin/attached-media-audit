@@ -6,13 +6,13 @@ export default function ThumbnailCell( { item } ) {
 				alt=""
 				width={ 60 }
 				height={ 60 }
-				className="wp-smart-media-audit-thumb"
+				className="wp-attached-media-audit-thumb"
 			/>
 		);
 	}
 	return (
 		<span
-			className="dashicons dashicons-media-default wp-smart-media-audit-thumb-icon"
+			className="dashicons dashicons-media-default wp-attached-media-audit-thumb-icon"
 			aria-hidden="true"
 		/>
 	);

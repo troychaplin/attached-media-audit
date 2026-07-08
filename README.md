@@ -1,6 +1,6 @@
-<img src="assets/banner-772x250.png" alt="Smart Media Audit" style="width: 100%; height: auto;">
+<img src="assets/banner-772x250.png" alt="Attached: Media Audit" style="width: 100%; height: auto;">
 
-# Smart Media Audit
+# Attached: Media Audit
 
 A WordPress plugin that audits your media library — showing which files are used, where they appear, and which are safe to clean up.
 
@@ -22,7 +22,7 @@ A WordPress plugin that audits your media library — showing which files are us
 
 ## Installation
 
-1. Copy the `smart-media-audit` folder into `wp-content/plugins/`.
+1. Copy the `attached-media-audit` folder into `wp-content/plugins/`.
 2. Run `pnpm install && pnpm build` from the plugin root.
 3. Activate the plugin in **Plugins → Installed Plugins**.
 4. Navigate to **Media → Media Audit**.
@@ -70,14 +70,14 @@ The scanner runs as a WP-Cron job in three phases: posts → file sizes → summ
 | `block` | Gutenberg block attributes (`core/image`, `core/cover`, `core/gallery`, `core/file`, `core/video`, `core/audio`, `core/media-text`) |
 | `classic` | `<img>` tags, `<a href>` links to uploads, and shortcodes (`[gallery]`, `[caption]`) in post content HTML |
 | `featured_image` | `_thumbnail_id` post meta |
-| `postmeta` | Other meta keys returning attachment IDs (configurable via `smart_media_audit_scanned_meta_keys` filter) |
+| `postmeta` | Other meta keys returning attachment IDs (configurable via `attached_media_audit_scanned_meta_keys` filter) |
 
 Alt text detection for block images reads the rendered `<img alt>` in `innerHTML` via `WP_HTML_Tag_Processor`. Anchor links (`<a href>`) are resolved to attachment IDs via `attachment_url_to_postid()`.
 
 ### REST API
 
 ```
-GET /wp-json/smart-media-audit/v1/media
+GET /wp-json/attached-media-audit/v1/media
 ```
 
 | Parameter | Type | Description |
@@ -106,7 +106,7 @@ Response body:
 
 Two tables are created on activation.
 
-**`{prefix}smart_media_audit_index`** — one row per attachment-per-post reference:
+**`{prefix}attached_media_audit_index`** — one row per attachment-per-post reference:
 
 | Column | Type | Description |
 |---|---|---|
@@ -117,7 +117,7 @@ Two tables are created on activation.
 | `missing_alt` | `tinyint(1)` | 1 when the image is used in content without alt text |
 | `last_scanned` | `datetime` | When this row was last written |
 
-**`{prefix}smart_media_audit_summary`** — denormalized one-row-per-attachment projection used by the REST read path (no `GROUP BY` at query time):
+**`{prefix}attached_media_audit_summary`** — denormalized one-row-per-attachment projection used by the REST read path (no `GROUP BY` at query time):
 
 | Column | Type | Description |
 |---|---|---|
@@ -135,11 +135,11 @@ Two tables are created on activation.
 | `has_classic` | `tinyint(1)` | Referenced in HTML content |
 | `has_postmeta` | `tinyint(1)` | Referenced via post meta |
 
-File sizes are cached in post meta (`_smart_media_audit_filesize`) on first scan to support fast SQL `ORDER BY file_size`.
+File sizes are cached in post meta (`_attached_media_audit_filesize`) on first scan to support fast SQL `ORDER BY file_size`.
 
 ### DB versioning
 
-The DB version is tracked in the `smart_media_audit_db_version` option. Bumping `SMART_MEDIA_AUDIT_VERSION` in `smart-media-audit.php` triggers `dbDelta()` automatically on the next page load via `Plugin::maybe_upgrade_db()`.
+The DB version is tracked in the `attached_media_audit_db_version` option. Bumping `ATTACHED_MEDIA_AUDIT_VERSION` in `attached-media-audit.php` triggers `dbDelta()` automatically on the next page load via `Plugin::maybe_upgrade_db()`.
 
 ## Development
 
@@ -149,8 +149,8 @@ pnpm build      # production build
 pnpm start      # watch mode
 ```
 
-**Entry:** `src/smart-media-audit/index.js`  
-**Output:** `build/smart-media-audit-admin.{js,css,asset.php}`  
+**Entry:** `src/attached-media-audit/index.js`  
+**Output:** `build/attached-media-audit-admin.{js,css,asset.php}`  
 **Webpack:** extends `@wordpress/scripts` defaults via `webpack.config.js`
 
 ### Key source files
@@ -165,12 +165,12 @@ includes/
   scanner/class-post-scanner.php    — Orchestrates parsers, writes to index
   scanner/class-batch-runner.php    — WP-Cron batching, progress tracking
   admin/class-ajax-handler.php      — AJAX actions (scan, progress, locations, clear)
-  admin/class-admin-menu.php        — Asset enqueue, wpSmartMediaAudit JS global
+  admin/class-admin-menu.php        — Asset enqueue, wpAttachedMediaAudit JS global
   class-plugin.php                  — Bootstrap, DB upgrade check, hooks
 
-src/smart-media-audit/
+src/attached-media-audit/
   App.js                            — DataViews component, field definitions
-  hooks/useSmartMediaAudit.js       — REST fetch with AbortController
+  hooks/useAttachedMediaAudit.js       — REST fetch with AbortController
   hooks/useScanProgress.js          — AJAX polling, scan state machine
   components/ScanToolbar.js         — Scan Now + Clear Index + progress bar
   components/ThumbnailCell.js       — Image preview or dashicon fallback
@@ -181,10 +181,10 @@ src/smart-media-audit/
 
 ## Hooks
 
-**`smart_media_audit_scanned_meta_keys`** — Filter the list of post meta keys the scanner checks for attachment IDs.
+**`attached_media_audit_scanned_meta_keys`** — Filter the list of post meta keys the scanner checks for attachment IDs.
 
 ```php
-add_filter( 'smart_media_audit_scanned_meta_keys', function( array $keys ): array {
+add_filter( 'attached_media_audit_scanned_meta_keys', function( array $keys ): array {
     $keys[] = 'my_custom_image_field';
     return $keys;
 } );

@@ -1,7 +1,7 @@
 <?php
-namespace Smart_Media_Audit\Rest;
+namespace Attached_Media_Audit\Rest;
 
-use Smart_Media_Audit\DB\Index_Table;
+use Attached_Media_Audit\DB\Index_Table;
 use WP_REST_Controller;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -9,7 +9,7 @@ use WP_REST_Server;
 
 class Media_Controller extends WP_REST_Controller {
 
-	protected $namespace = 'smart-media-audit/v1';
+	protected $namespace = 'attached-media-audit/v1';
 	protected $rest_base = 'media';
 
 	public function register_routes(): void {
@@ -108,7 +108,7 @@ class Media_Controller extends WP_REST_Controller {
 			}
 		}
 		if ( $file_size > 0 && ! $cached ) {
-			update_post_meta( $id, '_smart_media_audit_filesize', $file_size );
+			update_post_meta( $id, '_attached_media_audit_filesize', $file_size );
 			// Self-heal the summary row so the next request reads the size from
 			// the projection instead of hitting the filesystem again, and so
 			// size-sorting is correct for attachments added since the last scan.

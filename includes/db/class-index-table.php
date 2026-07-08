@@ -1,12 +1,12 @@
 <?php
-namespace Smart_Media_Audit\DB;
+namespace Attached_Media_Audit\DB;
 
 class Index_Table {
 
-	const TABLE_NAME = 'smart_media_audit_index';
+	const TABLE_NAME = 'attached_media_audit_index';
 
 	/** Denormalized one-row-per-attachment projection used by the read path. */
-	const SUMMARY_TABLE_NAME = 'smart_media_audit_summary';
+	const SUMMARY_TABLE_NAME = 'attached_media_audit_summary';
 
 	/**
 	 * When true, writes skip incremental summary refresh. The batch scanner sets
@@ -16,7 +16,7 @@ class Index_Table {
 	public static bool $defer_summary = false;
 
 	/** Object-cache group for list-query results. */
-	const CACHE_GROUP = 'smart_media_audit';
+	const CACHE_GROUP = 'attached_media_audit';
 
 	/**
 	 * Current cache-busting marker for the group.
@@ -247,7 +247,7 @@ class Index_Table {
 				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'classic'),
 				(SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM {$index} idx WHERE idx.attachment_id = p.ID AND idx.reference_type = 'postmeta')
 			FROM {$posts_table} p
-			LEFT JOIN {$postmeta} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_smart_media_audit_filesize'
+			LEFT JOIN {$postmeta} pm_size ON pm_size.post_id = p.ID AND pm_size.meta_key = '_attached_media_audit_filesize'
 			LEFT JOIN {$postmeta} pm_alt ON pm_alt.post_id = p.ID AND pm_alt.meta_key = '_wp_attachment_image_alt'
 			WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
 			{$scope_where}";
@@ -486,12 +486,14 @@ class Index_Table {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.ID, p.post_title, p.post_type, idx.reference_type
-				FROM {$table} idx
-				INNER JOIN {$posts_table} p ON p.ID = idx.source_post_id
+				FROM %i idx
+				INNER JOIN %i p ON p.ID = idx.source_post_id
 				WHERE idx.attachment_id = %d
 				AND p.post_status NOT IN ('trash', 'auto-draft')
 				ORDER BY p.post_title ASC
 				LIMIT %d",
+				$table,
+				$posts_table,
 				$attachment_id,
 				self::LOCATIONS_LIMIT + 1
 			)

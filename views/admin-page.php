@@ -4,6 +4,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <div class="wrap">
-	<h1><?php esc_html_e( 'Media Audit', 'smart-media-audit' ); ?></h1>
-	<div id="wp-smart-media-audit-root"></div>
+	<h1><?php esc_html_e( 'Media Audit', 'attached-media-audit' ); ?></h1>
+	<div id="wp-attached-media-audit-root"></div>
 </div>

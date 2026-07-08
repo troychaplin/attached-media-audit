@@ -1,4 +1,4 @@
-=== Smart Media Audit ===
+=== Attached: Media Audit ===
 Contributors:      areziaal
 Tags:              media, media library, cleanup, unused media, accessibility
 Requires at least: 6.6
@@ -14,7 +14,7 @@ Know exactly what's in your media library — what's used, where it appears, and
 
 Your media library grows over time. Images get uploaded and forgotten. PDFs get replaced but the old ones stick around. Videos get removed from pages but never actually deleted. Before long, you're sitting on gigabytes of files you're not sure you still need.
 
-**Smart Media Audit gives you a clear picture — and the confidence to clean it up.**
+**Attached: Media Audit gives you a clear picture — and the confidence to clean it up.**
 
 The plugin scans your content and maps every media file to the posts, pages, and templates that use it. Browse your entire media library in one searchable, sortable, filterable table. See at a glance which files are in use and which are sitting idle. Click any file to see exactly which pages reference it before you decide to keep it or delete it.
 
@@ -68,7 +68,7 @@ Scanning is handled by a background job so it never slows down your site for vis
 
 = Privacy =
 
-Smart Media Audit is fully self-contained:
+Attached: Media Audit is fully self-contained:
 
 * Does not collect or transmit any data
 * Does not use cookies or third-party services
@@ -76,7 +76,7 @@ Smart Media Audit is fully self-contained:
 
 == Installation ==
 
-1. Install from the WordPress plugin directory, or upload the `smart-media-audit` folder to `/wp-content/plugins/`
+1. Install from the WordPress plugin directory, or upload the `attached-media-audit` folder to `/wp-content/plugins/`
 2. Activate through the **Plugins** menu in WordPress
 3. Navigate to **Media → Media Audit**
 4. Click **Scan Now** to index your media library
@@ -114,7 +114,7 @@ The "No alt" badge appears when an image is embedded in your content (via a bloc
 
 = Does it work with page builders? =
 
-The scanner checks common page builder meta fields (Elementor and Beaver Builder are supported out of the box). Developers can extend coverage to additional meta keys using the `smart_media_audit_scanned_meta_keys` filter.
+The scanner checks common page builder meta fields (Elementor and Beaver Builder are supported out of the box). Developers can extend coverage to additional meta keys using the `attached_media_audit_scanned_meta_keys` filter.
 
 = Will a scan affect my site's performance? =
 

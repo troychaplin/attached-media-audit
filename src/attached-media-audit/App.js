@@ -6,7 +6,7 @@ import ScanToolbar from './components/ScanToolbar';
 import ThumbnailCell from './components/ThumbnailCell';
 import TitleCell from './components/TitleCell';
 import UsedInCell from './components/UsedInCell';
-import useSmartMediaAudit from './hooks/useSmartMediaAudit';
+import useAttachedMediaAudit from './hooks/useAttachedMediaAudit';
 import useScanProgress from './hooks/useScanProgress';
 import './styles.scss';
 
@@ -30,9 +30,9 @@ function formatFileSize( bytes ) {
 export default function App() {
 	const [ view, setView ]               = useState( DEFAULT_VIEW );
 	const [ scanVersion, setScanVersion ] = useState( 0 );
-	const [ indexBuilt, setIndexBuilt ]   = useState( () => window.wpSmartMediaAudit?.indexBuilt ?? false );
+	const [ indexBuilt, setIndexBuilt ]   = useState( () => window.wpAttachedMediaAudit?.indexBuilt ?? false );
 
-	const { items, totalItems, isLoading } = useSmartMediaAudit( view, scanVersion );
+	const { items, totalItems, isLoading } = useAttachedMediaAudit( view, scanVersion );
 	const { status, progress, total, startScan, resetToIdle } = useScanProgress( {
 		onComplete: () => { setIndexBuilt( true ); setScanVersion( ( v ) => v + 1 ); },
 	} );
@@ -40,12 +40,12 @@ export default function App() {
 	const handleClear = useCallback( async () => {
 		// eslint-disable-next-line no-alert
 		if ( ! window.confirm(
-			__( 'Clear the media index? All scan data will be removed. Run a new scan to rebuild it.', 'smart-media-audit' )
+			__( 'Clear the media index? All scan data will be removed. Run a new scan to rebuild it.', 'attached-media-audit' )
 		) ) return;
 
-		const { ajaxUrl, nonce } = window.wpSmartMediaAudit;
+		const { ajaxUrl, nonce } = window.wpAttachedMediaAudit;
 		const body = new FormData();
-		body.append( 'action', 'smart_media_audit_clear_index' );
+		body.append( 'action', 'attached_media_audit_clear_index' );
 		body.append( 'nonce', nonce );
 
 		await fetch( ajaxUrl, { method: 'POST', body } ).catch( () => {} );
@@ -61,12 +61,12 @@ export default function App() {
 			count === 1
 				? sprintf(
 						/* translators: %s: file name */
-						__( 'Delete "%s"? This cannot be undone.', 'smart-media-audit' ),
+						__( 'Delete "%s"? This cannot be undone.', 'attached-media-audit' ),
 						selectedItems[ 0 ].title
 				  )
 				: sprintf(
 						/* translators: %d: number of files */
-						__( 'Delete %d files? This cannot be undone.', 'smart-media-audit' ),
+						__( 'Delete %d files? This cannot be undone.', 'attached-media-audit' ),
 						count
 				  );
 
@@ -90,7 +90,7 @@ export default function App() {
 		if ( ! window.confirm(
 			sprintf(
 				/* translators: %s: file name */
-				__( 'Delete "%s"? This cannot be undone.', 'smart-media-audit' ),
+				__( 'Delete "%s"? This cannot be undone.', 'attached-media-audit' ),
 				item.title
 			)
 		) ) return;
@@ -107,7 +107,7 @@ export default function App() {
 		() => [
 			{
 				id: 'thumbnail',
-				label: __( 'Preview', 'smart-media-audit' ),
+				label: __( 'Preview', 'attached-media-audit' ),
 				enableSorting: false,
 				enableHiding: false,
 				enableGlobalSearch: false,
@@ -115,7 +115,7 @@ export default function App() {
 			},
 			{
 				id: 'title',
-				label: __( 'File Name', 'smart-media-audit' ),
+				label: __( 'File Name', 'attached-media-audit' ),
 				enableSorting: true,
 				enableHiding: false,
 				enableGlobalSearch: true,
@@ -125,36 +125,36 @@ export default function App() {
 			},
 			{
 				id: 'reference_type',
-				label: __( 'Location', 'smart-media-audit' ),
+				label: __( 'Location', 'attached-media-audit' ),
 				enableSorting: false,
 				elements: [
-					{ value: 'block', label: __( 'Block', 'smart-media-audit' ) },
-					{ value: 'featured_image', label: __( 'Featured Image', 'smart-media-audit' ) },
-					{ value: 'classic', label: __( 'Content', 'smart-media-audit' ) },
-					{ value: 'postmeta', label: __( 'Post Meta', 'smart-media-audit' ) },
+					{ value: 'block', label: __( 'Block', 'attached-media-audit' ) },
+					{ value: 'featured_image', label: __( 'Featured Image', 'attached-media-audit' ) },
+					{ value: 'classic', label: __( 'Content', 'attached-media-audit' ) },
+					{ value: 'postmeta', label: __( 'Post Meta', 'attached-media-audit' ) },
 				],
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
 				id: 'media_type',
-				label: __( 'Type', 'smart-media-audit' ),
+				label: __( 'Type', 'attached-media-audit' ),
 				enableSorting: false,
 				elements: [
-					{ value: 'Image', label: __( 'Image', 'smart-media-audit' ) },
-					{ value: 'Video', label: __( 'Video', 'smart-media-audit' ) },
-					{ value: 'Audio', label: __( 'Audio', 'smart-media-audit' ) },
-					{ value: 'Document', label: __( 'Document', 'smart-media-audit' ) },
+					{ value: 'Image', label: __( 'Image', 'attached-media-audit' ) },
+					{ value: 'Video', label: __( 'Video', 'attached-media-audit' ) },
+					{ value: 'Audio', label: __( 'Audio', 'attached-media-audit' ) },
+					{ value: 'Document', label: __( 'Document', 'attached-media-audit' ) },
 				],
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
 				id: 'usage',
-				label: __( 'Used In', 'smart-media-audit' ),
+				label: __( 'Used In', 'attached-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
 				elements: [
-					{ value: 'used',   label: __( 'Used', 'smart-media-audit' ) },
-					{ value: 'unused', label: __( 'Unused', 'smart-media-audit' ) },
+					{ value: 'used',   label: __( 'Used', 'attached-media-audit' ) },
+					{ value: 'unused', label: __( 'Unused', 'attached-media-audit' ) },
 				],
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 				getValue: ( { item } ) => item.usage_count,
@@ -162,7 +162,7 @@ export default function App() {
 			},
 			{
 				id: 'file_size',
-				label: __( 'Size', 'smart-media-audit' ),
+				label: __( 'Size', 'attached-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
 				getValue: ( { item } ) => item.file_size,
@@ -170,15 +170,15 @@ export default function App() {
 			},
 			{
 				id: 'alt_text',
-				label: __( 'Alt Text', 'smart-media-audit' ),
+				label: __( 'Alt Text', 'attached-media-audit' ),
 				enableSorting: false,
 				enableHiding: false,
 				enableGlobalSearch: false,
 				render: ( { item } ) => {
 					if ( item.media_type !== 'Image' || ! item.content_alt_missing ) return null;
 					return (
-						<span className="wp-smart-media-audit-no-alt">
-							{ __( 'No alt', 'smart-media-audit' ) }
+						<span className="wp-attached-media-audit-no-alt">
+							{ __( 'No alt', 'attached-media-audit' ) }
 						</span>
 					);
 				},
@@ -188,18 +188,18 @@ export default function App() {
 				// DataViews' alphabetical sort puts it after "Used In" (U), giving
 				// the chip order: Location → Type → Used In → Without Alt.
 				id: 'missing_alt',
-				label: __( 'Without Alt', 'smart-media-audit' ),
+				label: __( 'Without Alt', 'attached-media-audit' ),
 				enableSorting: false,
 				enableHiding: false,
 				enableGlobalSearch: false,
 				elements: [
-					{ value: 'missing', label: __( 'Missing', 'smart-media-audit' ) },
+					{ value: 'missing', label: __( 'Missing', 'attached-media-audit' ) },
 				],
 				filterBy: { isPrimary: true, operators: [ 'is' ] },
 			},
 			{
 				id: 'date',
-				label: __( 'Date', 'smart-media-audit' ),
+				label: __( 'Date', 'attached-media-audit' ),
 				enableSorting: true,
 				enableGlobalSearch: false,
 				getValue: ( { item } ) => item.date,
@@ -218,7 +218,7 @@ export default function App() {
 		() => [
 			{
 				id: 'delete',
-				label: __( 'Delete', 'smart-media-audit' ),
+				label: __( 'Delete', 'attached-media-audit' ),
 				isDestructive: true,
 				isEligible: ( item ) => item.usage_count === 0,
 				callback: handleDeleteItems,
@@ -233,7 +233,7 @@ export default function App() {
 	};
 
 	return (
-		<div className="wp-smart-media-audit-app">
+		<div className="wp-attached-media-audit-app">
 			<ScanToolbar
 				status={ status }
 				progress={ progress }

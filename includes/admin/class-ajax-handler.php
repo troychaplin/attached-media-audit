@@ -1,20 +1,20 @@
 <?php
-namespace Smart_Media_Audit\Admin;
+namespace Attached_Media_Audit\Admin;
 
-use Smart_Media_Audit\Scanner\Batch_Runner;
-use Smart_Media_Audit\DB\Index_Table;
+use Attached_Media_Audit\Scanner\Batch_Runner;
+use Attached_Media_Audit\DB\Index_Table;
 
 class Ajax_Handler {
 
 	public static function register(): void {
-		add_action( 'wp_ajax_smart_media_audit_progress',    array( __CLASS__, 'handle_progress' ) );
-		add_action( 'wp_ajax_smart_media_audit_scan',        array( __CLASS__, 'handle_scan' ) );
-		add_action( 'wp_ajax_smart_media_audit_locations',   array( __CLASS__, 'handle_locations' ) );
-		add_action( 'wp_ajax_smart_media_audit_clear_index', array( __CLASS__, 'handle_clear_index' ) );
+		add_action( 'wp_ajax_attached_media_audit_progress',    array( __CLASS__, 'handle_progress' ) );
+		add_action( 'wp_ajax_attached_media_audit_scan',        array( __CLASS__, 'handle_scan' ) );
+		add_action( 'wp_ajax_attached_media_audit_locations',   array( __CLASS__, 'handle_locations' ) );
+		add_action( 'wp_ajax_attached_media_audit_clear_index', array( __CLASS__, 'handle_clear_index' ) );
 	}
 
 	public static function handle_progress(): void {
-		check_ajax_referer( 'smart_media_audit_nonce', 'nonce' );
+		check_ajax_referer( 'attached_media_audit_nonce', 'nonce' );
 		// A nonce is anti-CSRF, not authorization — gate on capability too.
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Unauthorized', 403 );
@@ -23,7 +23,7 @@ class Ajax_Handler {
 	}
 
 	public static function handle_scan(): void {
-		check_ajax_referer( 'smart_media_audit_nonce', 'nonce' );
+		check_ajax_referer( 'attached_media_audit_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Unauthorized', 403 );
 		}
@@ -32,7 +32,7 @@ class Ajax_Handler {
 	}
 
 	public static function handle_locations(): void {
-		check_ajax_referer( 'smart_media_audit_nonce', 'nonce' );
+		check_ajax_referer( 'attached_media_audit_nonce', 'nonce' );
 		// Without this, any logged-in user with a valid nonce could enumerate
 		// titles of private/draft posts via the locations data.
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -78,7 +78,7 @@ class Ajax_Handler {
 	}
 
 	public static function handle_clear_index(): void {
-		check_ajax_referer( 'smart_media_audit_nonce', 'nonce' );
+		check_ajax_referer( 'attached_media_audit_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Unauthorized', 403 );
 		}

@@ -1,5 +1,5 @@
 <?php
-namespace Smart_Media_Audit\Scanner;
+namespace Attached_Media_Audit\Scanner;
 
 class Classic_Parser {
 
